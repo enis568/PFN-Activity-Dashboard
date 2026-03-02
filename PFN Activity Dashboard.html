@@ -1,0 +1,3860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDMP / LinxCAT Delivery Input</title>
+
+  <!-- Datepicker base CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+  <style>
+    :root{
+      --bg-1: #05070f;
+      --bg-2: #070b18;
+      --bg-3: #0b1226;
+      --card: rgba(255,255,255,0.035);
+      --card-strong: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.08);
+      --text: #f6f8ff;
+      --muted: #aab4c8;
+      --hint: #8390ab;
+      --accent: #7dd3fc;
+      --accent-strong: #38bdf8;
+      --accent-deep: #0ea5e9;
+      --shadow-1: 0 10px 28px rgba(0,0,0,0.40);
+      --shadow-2: 0 28px 70px rgba(0,0,0,0.60);
+      --radius-outer: 20px;
+      --radius-inner: 12px;
+      --input-bg: rgba(255,255,255,0.035);
+      --input-border: rgba(255,255,255,0.10);
+      --input-focus: rgba(125,211,252,0.45);
+      --done-bg: rgba(34,197,94,0.16);
+      --done-br: rgba(34,197,94,0.60);
+      --done-tx: #e6fff0;
+      --open-bg: rgba(56,189,248,0.18);
+      --open-br: rgba(56,189,248,0.70);
+      --open-tx: #e0f5ff;
+      --delay-bg: rgba(249,115,22,0.18);
+      --delay-br: rgba(249,115,22,0.70);
+      --delay-tx: #ffe4cf;
+      --cancel-bg: rgba(239,68,68,0.16);
+      --cancel-br: rgba(239,68,68,0.65);
+      --cancel-tx: #ffe0e0;
+    }
+    *{box-sizing:border-box;}
+    html, body{
+      margin:0;
+      padding:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+    }
+
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      margin:0;
+      padding:0;
+      min-height:100vh;
+      background:
+        radial-gradient(1200px 600px at 10% 10%, rgba(56,189,248,0.10), transparent 55%),
+        radial-gradient(900px 700px at 90% 15%, rgba(14,165,233,0.10), transparent 55%),
+        radial-gradient(1100px 900px at 50% 90%, rgba(125,211,252,0.08), transparent 60%),
+        linear-gradient(135deg, var(--bg-1), var(--bg-2) 45%, var(--bg-3));
+    }
+
+    /* Global scroll container: shows a bottom horizontal scrollbar when needed */
+    .page-scroll{
+      position:fixed;
+      inset:0;
+      width:100vw;
+      height:100vh;
+      overflow:auto;
+      scrollbar-gutter: stable both-edges;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Optional: Space + drag pan mode */
+    .page-scroll.panning-active{ cursor: grab; }
+    .page-scroll.panning-active.is-dragging{ cursor: grabbing; }
+
+
+    .shell{
+      position:relative;
+      width:min(1650px, calc(100vw - 28px));
+      max-width:1650px;
+      margin:0 auto;
+      padding:20px 14px 36px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
+
+
+    .center-wrapper{
+      width:100%;
+      display:flex;
+      justify-content:center;
+    }
+
+    /* Compact combo dropdown (styled, consistent across browsers) */
+    .combo-row{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .combo{
+      position:relative;
+      flex:1 1 auto;
+      min-width:0;
+    }
+    .combo input{
+      padding-right:42px;
+    }
+    .combo-toggle{
+      position:absolute;
+      right:8px;
+      top:50%;
+      transform:translateY(-50%);
+      width:28px;
+      height:28px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.10);
+      background:rgba(255,255,255,0.05);
+      color:rgba(226,232,240,0.95);
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:12px;
+      line-height:1;
+      transition: transform .08s ease, background .12s ease, border-color .12s ease;
+    }
+    .combo-toggle:hover{
+      background:rgba(255,255,255,0.08);
+      border-color:rgba(125,211,252,0.35);
+      transform:translateY(-50%) scale(1.02);
+    }
+    .combo-menu{
+      position:absolute;
+      left:0;
+      right:0;
+      top:calc(100% + 6px);
+      z-index:50;
+      display:none;
+      max-height:220px;
+      overflow:auto;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,0.10);
+      background:linear-gradient(180deg, rgba(8,14,30,0.98), rgba(6,10,22,0.98));
+      box-shadow:0 18px 55px rgba(0,0,0,0.65);
+      backdrop-filter: blur(10px);
+      padding:6px;
+    }
+    .combo.open .combo-menu{ display:block; }
+
+    /* Ensure filter dropdown menus always render above nearby cards (no clipping / no overlay issues) */
+    .filter-card .combo-menu{ z-index:2500; }
+    .combo-item{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:8px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      color:rgba(241,245,249,0.92);
+      font-size:0.90rem;
+      border:1px solid transparent;
+      user-select:none;
+    }
+    .combo-item:hover{
+      background:rgba(56,189,248,0.10);
+      border-color:rgba(56,189,248,0.22);
+    }
+    .combo-empty{
+      padding:10px;
+      color:rgba(148,163,184,0.9);
+      font-size:0.86rem;
+    }
+
+    /* Super compact Add/Delete buttons */
+    .mini-tool-btn{
+      width:30px;
+      height:30px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.10);
+      background:rgba(255,255,255,0.04);
+      color:rgba(226,232,240,0.95);
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:12px;
+      line-height:1;
+      transition: transform .08s ease, background .12s ease, border-color .12s ease, filter .12s ease;
+      flex:0 0 auto;
+    }
+    .mini-tool-btn:hover{
+      background:rgba(255,255,255,0.07);
+      border-color:rgba(125,211,252,0.35);
+      transform:translateY(-1px);
+    }
+    .mini-tool-btn.danger{
+      background:rgba(239,68,68,0.08);
+      border-color:rgba(239,68,68,0.30);
+      color:#ffd7d7;
+    }
+    .mini-tool-btn.danger:hover{
+      background:rgba(239,68,68,0.14);
+      border-color:rgba(239,68,68,0.45);
+    }
+
+
+
+    .brand{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 0 6px;
+    }
+    .brand-left{ display:flex; align-items:center; gap: 12px; }
+    .brand-dot{
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 30% 30%, var(--accent), transparent 55%),
+        radial-gradient(circle at 70% 70%, var(--accent-deep), transparent 55%),
+        var(--accent-strong);
+      box-shadow: 0 0 18px rgba(56,189,248,0.55);
+    }
+    .brand-title{
+      font-size: 1.05rem;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #edf4ff;
+    }
+    .brand-sub{
+      font-size: 0.82rem;
+      color: var(--hint);
+      margin-top: 1px;
+    }
+    .brand-right{
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(56,189,248,0.08);
+      border: 1px solid rgba(56,189,248,0.30);
+      color: #dff3ff;
+      white-space: nowrap;
+    }
+
+    .card{
+      background: linear-gradient(180deg, var(--card-strong), var(--card));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-2);
+      border-radius: var(--radius-outer);
+    }
+
+    .grid{ display:grid; grid-template-columns: minmax(460px, 1.12fr) 1.28fr; }
+    @media (max-width: 1180px){ .grid{ grid-template-columns: 1fr; } }
+
+    .pane-form{
+      padding: 24px 24px 20px;
+      border-right: 1px solid rgba(255,255,255,0.05);
+    }
+    @media (max-width: 1180px){
+      .pane-form{
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+      }
+    }
+    .section-title{ font-size: 1.22rem; font-weight: 650; margin: 0 0 6px 0; }
+    .section-sub{ font-size: 0.88rem; color: var(--muted); margin: 0 0 18px 0; }
+    .field{ margin-bottom: 14px; }
+
+    label{
+      display:flex;
+      align-items:center;
+      gap: 6px;
+      font-size: 0.72rem;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--hint);
+      margin-bottom: 6px;
+    }
+    .required-dot{
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #f87171;
+      display:inline-block;
+      transform: translateY(-1px);
+    }
+
+    input, select, textarea{
+      width:100%;
+      padding: 12px 12px;
+      border-radius: var(--radius-inner);
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease, transform .08s ease;
+    }
+    input::placeholder, textarea::placeholder{ color: rgba(170,180,200,0.55); }
+    input:focus, select:focus, textarea:focus{
+      border-color: rgba(125,211,252,0.65);
+      box-shadow:
+        0 0 0 2px rgba(125,211,252,0.12),
+        0 0 0 1px var(--input-focus) inset;
+      background: rgba(255,255,255,0.06);
+      transform: translateY(-1px);
+    }
+    textarea{ min-height: 90px; resize: vertical; line-height: 1.35; }
+
+    select{
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.35) 50%),
+        linear-gradient(135deg, rgba(255,255,255,0.35) 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) calc(50% - 2px),
+        calc(100% - 13px) calc(50% - 2px);
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+    }
+    select option{ background:#0b1226; color:var(--text); }
+
+    .hint{ font-size:0.78rem; color:var(--hint); margin-top:6px; }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:18px;
+      align-items:center;
+    }
+    .btn{
+      border-radius:999px;
+      padding:11px 16px;
+      font-size:0.82rem;
+      font-weight:650;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      cursor:pointer;
+      border:1px solid transparent;
+      transition: transform .08s ease, filter .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+    }
+    .btn-primary{
+      color:#04111e;
+      background:linear-gradient(135deg, var(--accent), var(--accent-strong) 45%, var(--accent-deep));
+      box-shadow:var(--shadow-1), 0 0 0 1px rgba(255,255,255,0.06) inset;
+    }
+    .btn-primary:hover{ filter:brightness(1.05); transform:translateY(-1px); }
+    .btn-ghost{
+      color:var(--text);
+      background:rgba(255,255,255,0.035);
+      border-color:rgba(255,255,255,0.10);
+    }
+    .btn-ghost:hover{ background:rgba(255,255,255,0.06); transform:translateY(-1px); }
+    .btn-warn{
+      color:#1b1402;
+      background:linear-gradient(135deg, #fde68a, #fbbf24);
+      box-shadow:var(--shadow-1);
+    }
+    .btn-hidden{ display:none !important; }
+    .micro{ font-size:0.72rem; color:var(--hint); margin-top:10px; }
+
+    .mode-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:0.68rem;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      border:1px solid rgba(251,191,36,0.45);
+      background:rgba(251,191,36,0.08);
+      color:#fff1c2;
+      margin-bottom:12px;
+    }
+    .mode-dot{
+      width:6px; height:6px;
+      border-radius:50%;
+      background:#fbbf24;
+      box-shadow:0 0 10px rgba(251,191,36,0.5);
+    }
+
+    .delivery-select{
+      font-weight:600;
+      transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, color .16s ease;
+    }
+    .delivery-select.ds-open{ background:var(--open-bg); border-color:var(--open-br); color:var(--open-tx); }
+    .delivery-select.ds-done{ background:var(--done-bg); border-color:var(--done-br); color:var(--done-tx); }
+    .delivery-select.ds-delay{ background:var(--delay-bg); border-color:var(--delay-br); color:var(--delay-tx); }
+    .delivery-select.ds-cancel{ background:var(--cancel-bg); border-color:var(--cancel-br); color:var(--cancel-tx); }
+
+    .pane-review{ padding:24px 22px 20px; }
+
+    .status-card{
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.14);
+      border-radius:16px;
+      padding:16px 16px 14px;
+      margin-bottom:12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    .status-title{
+      font-size:0.92rem;
+      letter-spacing:0.10em;
+      text-transform:uppercase;
+      color:var(--hint);
+      margin-bottom:8px;
+    }
+    .status-value{ font-size:2.05rem; font-weight:800; letter-spacing:0.01em; }
+    .status-sub{ font-size:0.92rem; color:rgba(226,232,240,0.88); margin-top:4px; }
+
+    .ribbon-card{
+      background:rgba(255,255,255,0.035);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:16px;
+      overflow:hidden;
+      margin-bottom:12px;
+    }
+    .ribbon-head{
+      padding:11px 13px;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+    }
+    .ribbon-title{
+      font-size:0.82rem;
+      letter-spacing:0.10em;
+      text-transform:uppercase;
+      color:var(--hint);
+    }
+    .ribbon-sub{ font-size:0.75rem; color:var(--hint); }
+    .ribbon-track{
+      display:flex;
+      gap:8px;
+      padding:11px 11px 13px;
+      overflow-x:auto;
+      scrollbar-width:thin;
+    }
+    .project-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:0.78rem;
+      white-space:nowrap;
+      border:1px solid rgba(255,255,255,0.10);
+      background:rgba(255,255,255,0.04);
+    }
+    .pill-dot{
+      width:8px; height:8px;
+      border-radius:50%;
+      box-shadow:0 0 10px rgba(255,255,255,0.08);
+      flex:0 0 auto;
+    }
+    .dot-done{ background:rgba(34,197,94,0.98); }
+    .dot-open{ background:rgba(56,189,248,0.98); }
+    .dot-delay{ background:rgba(249,115,22,0.98); }
+    .dot-cancel{ background:rgba(239,68,68,0.98); }
+
+    .filter-card{
+      background:rgba(255,255,255,0.035);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:16px;
+      /* Allow filter dropdowns to extend beyond the card (prevents "cut in half" menus) */
+      overflow:visible;
+      position:relative;
+      z-index:3;
+      margin-bottom:12px;
+    }
+    .filter-head{
+      padding:11px 13px;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .filter-title{
+      font-size:0.82rem;
+      letter-spacing:0.10em;
+      text-transform:uppercase;
+      color:var(--hint);
+    }
+    .filter-sub{ font-size:0.75rem; color:var(--hint); }
+    .filter-body{
+      padding:12px 12px 14px;
+      display:grid;
+      grid-template-columns: 1fr 1fr 0.9fr auto;
+      gap:8px;
+      align-items:end;
+    }
+    @media (max-width: 820px){ .filter-body{ grid-template-columns:1fr; } }
+    .filter-body input,
+    .filter-body select{ padding:10px 11px; font-size:0.9rem; }
+    .filter-mini{ padding:9px 12px; font-size:0.72rem; }
+    .filter-footer{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:0 12px 12px;
+      flex-wrap:wrap;
+    }
+    .filter-count{ font-size:0.78rem; color:var(--hint); }
+    .toggle{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.10);
+      font-size:0.72rem;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      color:#e6f6ff;
+    }
+    .toggle input{ width:18px; height:18px; accent-color:#38bdf8; cursor:pointer; }
+
+    .table-card{
+      background:rgba(255,255,255,0.035);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:16px;
+      overflow:hidden;
+      margin-bottom:12px;
+    }
+    .table-head{
+      padding:11px 13px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+    }
+    .table-head-title{
+      font-size:0.82rem;
+      letter-spacing:0.10em;
+      text-transform:uppercase;
+      color:var(--hint);
+    }
+    .table-head-sub{ font-size:0.75rem; color:var(--hint); }
+    .table-wrap{ max-height:400px; overflow:auto; overflow-x:auto; overflow-y:auto; position:relative; }
+    .table-inner{ overflow:visible; }
+    table{
+      width:100%;
+      min-width:1750px;
+      border-collapse:separate;
+      border-spacing:0;
+      font-size:0.84rem;
+    }
+    thead th{
+      position:sticky;
+      top:0;
+      background:rgba(8,14,30,0.96);
+      backdrop-filter:blur(8px);
+      text-align:left;
+      padding:10px 10px;
+      color:#dbe7ff;
+      font-weight:650;
+      border-bottom:1px solid rgba(255,255,255,0.10);
+      white-space:nowrap;
+      z-index:20;
+    }
+    /* === HARDEN: keep header always visible while scrolling (Edge/Chrome safe) === */
+    table{ position:relative; }
+    thead{ position:sticky; top:0; z-index:30; }
+    thead tr{ position:sticky; top:0; z-index:30; }
+    thead th{
+      z-index:31;
+      background:#05070f; /* solid fallback to avoid any 'invisible' look */
+      backdrop-filter:none;
+    }
+
+    tbody td{
+      padding:10px 10px;
+      border-bottom:1px dashed rgba(255,255,255,0.06);
+      color:var(--text);
+      vertical-align:top;
+    }
+    tbody tr:hover{ background:rgba(255,255,255,0.035); }
+    
+    /* === PRO UX: keep critical columns visible without horizontal scrolling === */
+    
+    /* Actions + Delivery Status stay pinned on the right (Comment scrolls normally) */
+    .table-inner{ position:relative; }
+    .table-inner table{
+      --stickyActionsW: 126px;
+      --stickyStatusW: 190px;
+    }
+
+    /* Actions (pinned) */
+    .table-inner table th.sticky-actions,
+    .table-inner table td.sticky-actions{
+      position:sticky;
+      right:0;
+      z-index:5;
+      min-width:var(--stickyActionsW);
+      width:var(--stickyActionsW);
+      background:rgba(8,14,30,0.96);
+      backdrop-filter:blur(8px);
+      border-left:1px solid rgba(255,255,255,0.10);
+      box-shadow:-14px 0 22px rgba(0,0,0,0.45);
+    }
+
+    /* Delivery Status (pinned) */
+    .table-inner table th.sticky-status,
+    .table-inner table td.sticky-status{
+      position:sticky;
+      right:var(--stickyActionsW);
+      z-index:4;
+      min-width:var(--stickyStatusW);
+      width:var(--stickyStatusW);
+      background:rgba(8,14,30,0.92);
+      backdrop-filter:blur(8px);
+      border-left:1px solid rgba(255,255,255,0.08);
+    }
+
+    /* Make sure header remains above body */
+    .table-inner table thead th.sticky-actions{ z-index:8; }
+    .table-inner table thead th.sticky-status{ z-index:7; }
+
+    /* Slightly more room so badges/buttons never feel cramped */
+    .table-inner table td.sticky-actions,
+    .table-inner table td.sticky-status{ padding-right:12px; }
+.col-index{ width:40px; color:var(--hint); }
+
+    .edit-btn, .delete-btn{
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:0.62rem;
+      letter-spacing:0.05em;
+      text-transform:uppercase;
+      cursor:pointer;
+      white-space:nowrap;
+      line-height:1.1;
+      border:1px solid transparent;
+      transition: background .12s ease, transform .08s ease, border-color .12s ease;
+    }
+    .edit-btn{
+      background:rgba(125,211,252,0.10);
+      border-color:rgba(125,211,252,0.30);
+      color:#e8f7ff;
+      margin-right:6px;
+    }
+    .edit-btn:hover{ background:rgba(125,211,252,0.18); transform:translateY(-1px); }
+    .delete-btn{
+      background:rgba(248,113,113,0.08);
+      border-color:rgba(248,113,113,0.35);
+      color:#ffd7d7;
+    }
+    .delete-btn:hover{ background:rgba(239,68,68,0.14); transform:translateY(-1px); }
+
+    .status-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 9px;
+      border-radius:999px;
+      font-size:0.62rem;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      border:1px solid transparent;
+      white-space:nowrap;
+      font-weight:650;
+    }
+    .status-done{ background:var(--done-bg); border-color:var(--done-br); color:var(--done-tx); }
+    .status-open{ background:var(--open-bg); border-color:var(--open-br); color:var(--open-tx); }
+    .status-delay{ background:var(--delay-bg); border-color:var(--delay-br); color:var(--delay-tx); }
+    .status-cancel{ background:var(--cancel-bg); border-color:var(--cancel-br); color:var(--cancel-tx); }
+
+    .empty{ padding:16px 14px; font-size:0.86rem; color:var(--muted); }
+
+    .dash-card{
+      background:rgba(255,255,255,0.035);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:16px;
+      overflow:hidden;
+    }
+    .dash-head{
+      padding:11px 13px;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .dash-title{
+      font-size:0.92rem;
+      letter-spacing:0.10em;
+      text-transform:uppercase;
+      color:var(--hint);
+    }
+    .dash-sub{ font-size:0.75rem; color:var(--hint); }
+    .dash-body{
+      padding:12px;
+      display:grid;
+      grid-template-columns:0.85fr 1.15fr;
+      gap:12px;
+    }
+    @media (max-width: 860px){ .dash-body{ grid-template-columns:1fr; } }
+
+    .chart-box{
+      background:rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:14px;
+      padding:10px;
+      min-height:250px;
+    }
+    .chart-box-title{
+      font-size:0.86rem;
+      letter-spacing:0.10em;
+      text-transform:uppercase;
+      color:var(--hint);
+      margin-bottom:6px;
+    }
+    
+    .chart-title-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:6px;
+    }
+    .chart-title-row .chart-box-title{ margin-bottom:0; }
+    .chart-meta-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.10);
+      color:rgba(246,248,255,0.90);
+      font-size:0.68rem;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+.chart-box-sub{
+      font-size:0.73rem;
+      letter-spacing:0.10em;
+      text-transform:uppercase;
+      color:var(--hint);
+      margin-bottom:4px;
+    }
+    .chart-canvas-wrap{ position:relative; height:230px; }
+    .chart-canvas-wrap.dynamic{ height:285px; }
+    .chart-canvas-wrap.mini{ height:185px; }
+    @media (max-width:980px){ .chart-canvas-wrap.mini{ height:205px; } }
+
+    .extra-body{
+      padding:12px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+    .extra-quality-grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+    }
+
+    .modal-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(2,6,23,0.72);
+      backdrop-filter:blur(10px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:9999;
+    }
+    .modal{
+      width:100%;
+      max-width:420px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:16px;
+      box-shadow:0 25px 80px rgba(0,0,0,0.6);
+      padding:18px 18px 16px;
+    }
+    .modal-title{
+      font-size:0.9rem;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      color:rgba(226,232,240,0.9);
+      margin-bottom:8px;
+    }
+    .modal-message{
+      font-size:0.92rem;
+      color:rgba(241,245,249,0.9);
+      line-height:1.4;
+      margin-bottom:14px;
+      white-space:pre-line;
+    }
+    .modal-actions{ display:flex; justify-content:flex-end; gap:8px; }
+    .modal-btn{
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:0.72rem;
+      font-weight:650;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+      border:1px solid transparent;
+      cursor:pointer;
+      transition: transform .08s ease, filter .12s ease, border-color .12s ease, background .12s ease;
+    }
+    .modal-yes{
+      color:#052e16;
+      background:linear-gradient(135deg, #bbf7d0, #22c55e);
+      border-color:rgba(34,197,94,0.45);
+    }
+    .modal-no{
+      color:#3f0a0a;
+      background:linear-gradient(135deg, #fecaca, #ef4444);
+      border-color:rgba(239,68,68,0.5);
+    }
+    .modal-yes:hover,
+    .modal-no:hover{ filter:brightness(1.05); transform:translateY(-1px); }
+
+    /* Flatpickr themed like the dashboard */
+    /* === FIX: Month & Year dropdowns should NEVER be white (match dark dashboard) === */
+    .flatpickr-current-month .flatpickr-monthDropdown-months,
+    .flatpickr-current-month .flatpickr-monthDropdown-months:focus{
+      background:#05070f !important;
+      color:var(--text) !important;
+      border:1px solid rgba(148,163,184,0.6);
+      border-radius:10px;
+      outline:none;
+    }
+    .flatpickr-current-month .flatpickr-monthDropdown-months option{
+      background:#05070f !important;
+      color:var(--text) !important;
+    }
+    .flatpickr-current-month input.cur-year{
+      background:#05070f !important;
+      border:1px solid rgba(148,163,184,0.6);
+      border-radius:10px;
+      padding:0 6px;
+    }
+    .flatpickr-current-month .numInputWrapper span{
+      color:var(--text) !important;
+    }
+    .flatpickr-current-month .numInputWrapper span:hover{
+      background:rgba(255,255,255,0.06) !important;
+    }
+
+    .flatpickr-calendar{
+      background:linear-gradient(180deg,#05070f,#070b18);
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,0.6);
+      box-shadow:0 22px 60px rgba(0,0,0,0.85);
+      color:var(--text);
+      font-family:inherit;
+      z-index:99999;
+      position:absolute;
+    }
+    .flatpickr-months, .flatpickr-weekdays{ background:transparent; color:var(--text); }
+    .flatpickr-current-month{ padding-top:8px; color:var(--text); }
+    .flatpickr-current-month .flatpickr-monthDropdown-months{ background:transparent; color:var(--text); }
+    .flatpickr-current-month input.cur-year{ color:var(--text); }
+    .flatpickr-day{ color:var(--text); border-radius:10px; border:0; background:transparent; }
+    .flatpickr-day:hover{ background:rgba(148,163,184,0.35); }
+    .flatpickr-day.today{ border:1px solid var(--accent-strong); }
+    .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange{
+      background:var(--accent-strong);
+      color:#020617;
+    }
+    .flatpickr-weekday{ color:var(--muted); }
+    .flatpickr-weekwrapper .flatpickr-weeks{ border-right:1px solid rgba(148,163,184,0.4); }
+    .flatpickr-weekwrapper span.flatpickr-day{ color:var(--muted); }
+    .flatpickr-time{ border-top:1px solid rgba(148,163,184,0.4); }
+    .flatpickr-time input, .flatpickr-time .flatpickr-time-separator, .flatpickr-time .flatpickr-am-pm{ color:var(--text); }
+    .flatpickr-time input{
+      background:rgba(15,23,42,0.9);
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.6);
+    }
+    .flatpickr-day.disabled, .flatpickr-day.disabled:hover{ color:#4b5563; }
+  
+    /* --- Scrollable charts for better overview --- */
+    .chart-canvas-wrap.scroll-x{
+      overflow-x:auto;
+      overflow-y:hidden;
+      padding-bottom:10px;
+      scrollbar-gutter: stable;
+    }
+    .chart-canvas-wrap.scroll-x .chart-inner{
+      min-width:100%;
+      height:100%;
+    }
+    .chart-canvas-wrap.scroll-x::-webkit-scrollbar{ height:8px; }
+    .chart-canvas-wrap.scroll-x::-webkit-scrollbar-track{
+      background: rgba(255,255,255,0.06);
+      border-radius:999px;
+    }
+    .chart-canvas-wrap.scroll-x::-webkit-scrollbar-thumb{
+      background: rgba(148,163,184,0.42);
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.10);
+    }
+
+/* --- Page scrollbars (subtle, consistent) --- */
+.page-scroll{ scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.32) rgba(255,255,255,0.04); }
+.page-scroll::-webkit-scrollbar, body::-webkit-scrollbar{ width:10px; height:10px; }
+.page-scroll::-webkit-scrollbar-track, body::-webkit-scrollbar-track{ background: rgba(255,255,255,0.04); }
+.page-scroll::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb{
+  background: rgba(148,163,184,0.32);
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.08);
+}
+
+
+.status-card{
+      backdrop-filter: blur(10px);
+    }
+    .status-title{
+      font-size:0.92rem;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      color: var(--muted);
+    }
+    .status-value{
+      font-size:2.1rem;
+      line-height:1.05;
+    }
+
+
+    /* --- V6: Better visibility + slightly wider fields column --- */
+    .status-card{
+      box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+    }
+    .status-title{
+      color: rgba(246,248,255,0.92);
+      font-size: 0.82rem;
+    }
+    .status-value{
+      font-size: 2.25rem;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.35);
+    }
+    .status-sub{
+      color: rgba(190,200,220,0.90);
+    }
+    .status-badge{
+      font-size: 0.68rem;
+      padding: 5px 10px;
+    }
+    .chart-box-title{
+      color: rgba(246,248,255,0.92);
+    }
+    .chart-box-sub{
+      color: rgba(246,248,255,0.84);
+    }
+
+
+
+    /* --- Indicator size: 60% smaller (requested) --- */
+    .status-card{ padding:11px 12px 10px !important; }
+    .status-title{ font-size:0.52rem !important; letter-spacing:0.10em !important; }
+    .status-value{ font-size:1.55rem !important; line-height:1.10 !important; }
+    .status-sub{ font-size:0.70rem !important; }
+
+    /* --- View tools (zoom / fit) --- */
+    .view-tools{
+      width:100%;
+      margin:0 0 12px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,0.08);
+      background:rgba(255,255,255,0.03);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .view-tools-left{ min-width:0; }
+    .view-tools-title{
+      font-size:0.74rem;
+      letter-spacing:0.10em;
+      text-transform:uppercase;
+      color:rgba(246,248,255,0.92);
+      font-weight:650;
+      margin-bottom:2px;
+    }
+    .view-tools-sub{
+      font-size:0.76rem;
+      color:var(--hint);
+      line-height:1.2;
+      max-width:720px;
+    }
+    .view-tools-actions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .view-tools-label{
+      font-size:0.68rem;
+      letter-spacing:0.10em;
+      text-transform:uppercase;
+      color:var(--hint);
+    }
+    .view-tools-select{
+      width:auto;
+      min-width:110px;
+      padding:8px 10px;
+      font-size:0.86rem;
+      border-radius:999px;
+    }
+
+
+    /* --- Auto-compact mode (when many projects / PFNs) --- */
+    body.compact .shell{ padding:14px 10px 28px !important; }
+    body.compact .brand{ margin-bottom:12px !important; }
+    body.compact .brand-title{ font-size:1.05rem !important; }
+    body.compact .brand-sub{ font-size:0.78rem !important; }
+
+    /* Compact = same design, only denser spacing/sizing (no color changes) */
+    body.compact .card{ padding:12px 12px 12px !important; } /* keep same gradient/border/shadow/radius */
+    body.compact .grid{ grid-template-columns: minmax(320px, 440px) minmax(0, 1fr) !important; gap:12px !important; }
+    @media (max-width: 1100px){
+      body.compact .grid{ grid-template-columns: 1fr !important; }
+    }
+
+    body.compact .filters{ gap:8px !important; }
+    body.compact .field label{ font-size:0.68rem !important; }
+    body.compact input, 
+    body.compact select, 
+    body.compact textarea{ padding:9px 10px !important; font-size:0.88rem !important; }
+
+    body.compact .btn{ padding:10px 12px !important; }
+    body.compact .filter-mini{ padding:8px 10px !important; }
+
+    /* Keep table readable: scroll inside table area, header already sticky in base CSS */
+    body.compact .table-wrap{ max-height: clamp(220px, 30vh, 420px) !important; }
+
+    body.compact table{ min-width:1100px !important; font-size:0.82rem !important; }
+    body.compact th, body.compact td{ padding:10px 10px !important; }
+
+    body.compact .chart-box{ padding:10px 10px 12px !important; }
+    body.compact .chart-canvas-wrap{ height:200px !important; }
+
+    /* --- Flatpickr dropdown positioning    .flatpickr-wrapper{ position:relative; display:block; }
+    .flatpickr-calendar{ z-index:99999 !important; }
+    .flatpickr-calendar.static{ top:calc(100% + 6px) !important; left:0 !important; }
+
+
+    
+    /* Always prevent horizontal clipping when content grows */
+    .grid, .card, .right, .left{ min-width:0; }
+    .chart-box, .table-wrap{ min-width:0; }
+
+
+
+
+    
+    /* === Smart Indicators Drawer (PRO overlay, keeps same dashboard design) === */
+    :root{
+      --drawer-w: 480px;
+      --drawer-top: 118px; /* JS updates this for perfect alignment under header/tools */
+      --drawer-gap: 14px;
+    }
+
+    /* Backdrop (click to close) */
+    .drawer-backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.42);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+      z-index: 75;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+    body:not(.drawer-collapsed) .drawer-backdrop{
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Floating "open" pill (visible only when drawer is collapsed) */
+    .drawer-fab{
+      position: fixed;
+      left: 12px;
+      top: calc(var(--drawer-top) + 10px);
+      height: 42px;
+      padding: 0 14px 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: rgba(241,245,249,0.96);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 14px 40px rgba(0,0,0,0.40);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 85;
+      user-select: none;
+      transition: transform .14s ease, opacity .14s ease, background .14s ease, border-color .14s ease;
+    }
+    .drawer-fab:hover{
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(125,211,252,0.35);
+      transform: translateY(-1px);
+    }
+    .drawer-fab .dot{
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(34,197,94,0.90);
+      box-shadow: 0 0 0 3px rgba(34,197,94,0.18);
+      flex: 0 0 auto;
+    }
+    .drawer-fab .chev{
+      margin-left: 2px;
+      opacity: 0.85;
+      font-size: 14px;
+      line-height: 1;
+    }
+    body:not(.drawer-collapsed) .drawer-fab{
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-10px);
+    }
+
+    /* Drawer base */
+    .card{ position:relative; overflow:hidden; }
+
+    @media (min-width: 1181px){
+      /* Main area keeps full width. The form becomes a slide-over panel (overlay). */
+      .grid{ display:block; }
+
+      .pane-form{
+        position: fixed;
+        left: var(--drawer-gap);
+        top: var(--drawer-top);
+        bottom: 14px;
+        width: var(--drawer-w);
+        max-width: min(var(--drawer-w), calc(100vw - (var(--drawer-gap) * 2)));
+        overflow: auto;
+
+        border-radius: var(--radius-outer);
+        background: linear-gradient(180deg, var(--card-strong), var(--card));
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-2);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+
+        transform: translateX(calc(-110% - var(--drawer-gap)));
+        transition: transform 240ms ease, box-shadow 240ms ease;
+        will-change: transform;
+        z-index: 90;
+      }
+      body:not(.drawer-collapsed) .pane-form{
+        transform: translateX(0);
+      }
+    }
+
+    @media (max-width: 1180px){
+      /* Mobile / small screens: overlay drawer as well */
+      .grid{ display:block; }
+
+      .pane-form{
+        position: fixed;
+        left: var(--drawer-gap);
+        top: var(--drawer-top);
+        bottom: 14px;
+        width: min(var(--drawer-w), calc(100vw - (var(--drawer-gap) * 2)));
+        max-width: min(var(--drawer-w), calc(100vw - (var(--drawer-gap) * 2)));
+        overflow: auto;
+
+        border-radius: var(--radius-outer);
+        background: linear-gradient(180deg, var(--card-strong), var(--card));
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-2);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+
+        transform: translateX(calc(-110% - var(--drawer-gap)));
+        transition: transform 240ms ease;
+        z-index: 90;
+      }
+      body:not(.drawer-collapsed) .pane-form{
+        transform: translateX(0);
+      }
+    }
+
+    /* In-drawer close handle (always visible when drawer is open) */
+    .drawer-handle{
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: rgba(241,245,249,0.96);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      user-select:none;
+      transition: transform .10s ease, background .12s ease, border-color .12s ease;
+      z-index: 2;
+    }
+    .drawer-handle:hover{
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(125,211,252,0.35);
+      transform: translateY(-1px);
+    }
+    .drawer-handle:active{ transform: translateY(0px); }
+
+    /* When collapsed, drawer is off-canvas so the handle doesn't need to be clickable */
+    body.drawer-collapsed .drawer-handle{ opacity: 0.0; pointer-events: none; }
+
+
+  
+    /* === Toast notification (dashboard-style) === */
+    .dash-toast{
+      position:fixed;
+      right:18px;
+      bottom:18px;
+      z-index:9999;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:260px;
+      max-width:420px;
+      padding:12px 14px;
+      border-radius:14px;
+      color:var(--text);
+      background:rgba(10, 16, 28, 0.92);
+      border:1px solid rgba(148,163,184,0.28);
+      box-shadow:0 18px 50px rgba(0,0,0,0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transform: translateY(18px);
+      opacity:0;
+      pointer-events:none;
+    }
+    .dash-toast.show{
+      animation: dashToastIn 260ms cubic-bezier(.2,.9,.2,1) forwards;
+      pointer-events:auto;
+    }
+    .dash-toast.hide{
+      animation: dashToastOut 220ms cubic-bezier(.4,0,.6,1) forwards;
+      pointer-events:none;
+    }
+    @keyframes dashToastIn{
+      from{ transform: translateY(18px) scale(.98); opacity:0; }
+      to{ transform: translateY(0) scale(1); opacity:1; }
+    }
+    @keyframes dashToastOut{
+      from{ transform: translateY(0) scale(1); opacity:1; }
+      to{ transform: translateY(10px) scale(.98); opacity:0; }
+    }
+    .dash-toast .toast-dot{
+      width:10px; height:10px; border-radius:999px;
+      flex:0 0 10px;
+      background: #22c55e; /* success */
+      box-shadow:0 0 0 4px rgba(34,197,94,0.18);
+    }
+    .dash-toast.success .toast-dot{ background:#22c55e; box-shadow:0 0 0 4px rgba(34,197,94,0.18); }
+    .dash-toast.warn .toast-dot{ background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,0.18); }
+    .dash-toast.error .toast-dot{ background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,0.18); }
+    .dash-toast .toast-title{
+      font-weight:800;
+      letter-spacing:.2px;
+      font-size:13px;
+      opacity:.95;
+      margin:0;
+      line-height:1.2;
+    }
+    .dash-toast .toast-msg{
+      font-size:12.5px;
+      opacity:.9;
+      margin:0;
+      line-height:1.25;
+      word-break:break-word;
+    }
+    .dash-toast .toast-close{
+      margin-left:auto;
+      width:28px; height:28px;
+      border-radius:10px;
+      display:grid;
+      place-items:center;
+      border:1px solid rgba(148,163,184,0.25);
+      background:rgba(255,255,255,0.04);
+      color:var(--text);
+      cursor:pointer;
+      transition: transform .12s ease, background .12s ease;
+      flex:0 0 auto;
+    }
+    .dash-toast .toast-close:hover{
+      transform: translateY(-1px);
+      background:rgba(255,255,255,0.07);
+    }
+
+
+    
+    /* === FIX: filter dropdown menus must NOT overlap the sticky table header === */
+    .filter-card .combo-menu{
+      /* open upwards so it never covers the table header */
+      top:auto !important;
+      bottom:calc(100% + 6px) !important;
+      transform-origin: bottom right;
+
+      /* keep below the table header layer even if something repositions it */
+      z-index:20 !important;
+    }
+</style>
+</head>
+<body>
+<div class="page-scroll">
+<div class="shell">
+  <div class="brand">
+    <div class="brand-left">
+      <span class="brand-dot"></span>
+      <div>
+        <div class="brand-title">PDMP / LinxCAT Delivery Input</div>
+        <div class="brand-sub">Same premium layout · Fields adapted to PDMP &amp; LinxCAT · Excel export ready</div>
+      </div>
+    </div>
+    <div class="brand-right">15 Fields · Live Dashboard</div>
+  </div>
+
+
+  <div class="view-tools">
+    <div class="view-tools-left">
+      <div class="view-tools-title">View</div>
+      <div class="view-tools-sub">Zoom to keep the full dashboard visible (especially with many PFNs/projects).</div>
+    </div>
+    <div class="view-tools-actions">
+      <button type="button" class="btn btn-ghost filter-mini" id="drawerToggleBtn" aria-expanded="true" aria-controls="capturePane">Add New Project</button>
+      <label class="view-tools-label" for="uiZoom">Zoom</label>
+      <select id="uiZoom" class="view-tools-select" aria-label="Dashboard zoom">
+        <option value="1">100%</option>
+        <option value="0.9">90%</option>
+        <option value="0.8">80%</option>
+        <option value="0.7">70%</option>
+        <option value="0.6">60%</option>
+        <option value="0.5">50%</option>
+      </select>
+
+      <button type="button" class="btn btn-ghost filter-mini" id="fitBtn">Fit width</button>
+      <button type="button" class="btn btn-ghost filter-mini" id="resetViewBtn">Reset</button>
+    </div>
+  </div>
+
+  <div class="center-wrapper">
+    <div class="card">
+    <div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true"></div>
+    <button type="button" class="drawer-fab" id="drawerFabBtn" aria-label="Open indicators panel" title="Open indicators"><span class="dot"></span><span>Add New Project</span><span class="chev">❯</span></button>
+
+    <div class="grid">
+      <!-- FORM -->
+      <div class="pane-form" id="capturePane">
+        <button type="button" class="drawer-handle" id="drawerHandleBtn" aria-label="Close indicators panel" title="Close indicators">✕</button>
+        <h1 class="section-title">Capture indicators</h1>
+        <p class="section-sub">Save entries locally in your browser, manage them in-page, and export a structured Excel.</p>
+
+        <div id="editModeBanner" class="mode-pill btn-hidden">
+          <span class="mode-dot"></span>
+          <span>Editing existing entry</span>
+        </div>
+
+        <div class="field">
+          <label for="family"><span class="required-dot"></span> Family</label>
+          <input type="text" id="family" placeholder="Ex: X13xx" />
+          <div class="hint">Family first (e.g. X13xx), then the detailed project (X1310 / X1312).</div>
+        </div>
+
+        <div class="field">
+          <label for="projectName"><span class="required-dot"></span> Project Name</label>
+          <select id="projectName"></select>
+          <div class="hint">Choose an existing project or select <b>“Add new project…”</b> to register a new name.</div>
+        </div>
+
+        <!-- GFE (managed dropdown) -->
+        <div class="field">
+          <label for="gfe"><span class="required-dot"></span> GFE</label>
+          <div class="combo-row">
+            <div class="combo" id="gfeCombo">
+              <input type="text" id="gfe" placeholder="Select or type…" autocomplete="off" />
+              <button type="button" class="combo-toggle" id="gfeToggle" aria-label="Open GFE list">▾</button>
+              <div class="combo-menu" id="gfeMenu"></div>
+            </div>
+            <button type="button" class="mini-tool-btn" id="gfeAddBtn" title="Add to list" aria-label="Add GFE to list">＋</button>
+            <button type="button" class="mini-tool-btn danger" id="gfeDelBtn" title="Delete from list" aria-label="Delete GFE from list">🗑</button>
+          </div>
+          <div class="hint">Choose from the list or type a new GFE. Use <b>＋</b> to add, <b>🗑</b> to delete from dropdown list.</div>
+        </div>
+
+        <!-- Plant of production (managed dropdown) -->
+        <div class="field">
+          <label for="plantOfProduction"><span class="required-dot"></span> Plant of production</label>
+          <div class="combo-row">
+            <div class="combo" id="plantCombo">
+              <input type="text" id="plantOfProduction" placeholder="Select or type…" autocomplete="off" />
+              <button type="button" class="combo-toggle" id="plantToggle" aria-label="Open plant list">▾</button>
+              <div class="combo-menu" id="plantMenu"></div>
+            </div>
+            <button type="button" class="mini-tool-btn" id="plantAddBtn" title="Add to list" aria-label="Add plant to list">＋</button>
+            <button type="button" class="mini-tool-btn danger" id="plantDelBtn" title="Delete from list" aria-label="Delete plant from list">🗑</button>
+          </div>
+          <div class="hint">Choose from the list or type a new plant name. Use <b>＋</b> to add, <b>🗑</b> to delete from dropdown list.</div>
+        </div>
+
+
+        <div class="field">
+          <label for="diversity">Diversity</label>
+          <input type="text" id="diversity" placeholder="E.g. OK / KO / Open" />
+        </div>
+
+        <div class="field">
+          <label for="pfnName">PFN name</label>
+          <div class="combo-row">
+            <div class="combo" id="pfnCombo">
+              <input type="text" id="pfnName" placeholder="Select or type…" autocomplete="off" />
+              <button type="button" class="combo-toggle" id="pfnToggle" aria-label="Open PFN list">▾</button>
+              <div class="combo-menu" id="pfnMenu"></div>
+            </div>
+            <button type="button" class="mini-tool-btn" id="pfnAddBtn" title="Add to list" aria-label="Add PFN name to list">＋</button>
+            <button type="button" class="mini-tool-btn danger" id="pfnDelBtn" title="Delete from list" aria-label="Delete PFN name from list">🗑</button>
+          </div>
+          <div class="hint">Choose from the list or type a new PFN name. Use <b>＋</b> to add, <b>🗑</b> to delete from dropdown list.</div>
+        </div>
+
+        <div class="field">
+          <label for="pmdpPlanning">PDMP Planning Date</label>
+          <input type="text" id="pmdpPlanning" placeholder="YYYY-MM-DD" />
+        </div>
+        <div class="field">
+          <label for="pmdpDelivery">PDMP Delivery Date</label>
+          <input type="text" id="pmdpDelivery" placeholder="YYYY-MM-DD" />
+        </div>
+        <div class="field">
+          <label for="linxPlanning">LinxCAT Planning Date</label>
+          <input type="text" id="linxPlanning" placeholder="YYYY-MM-DD" />
+        </div>
+        <div class="field">
+          <label for="linxDelivery">LinxCAT Delivery Date</label>
+          <input type="text" id="linxDelivery" placeholder="YYYY-MM-DD" />
+        </div>
+
+        
+        <!-- Milestone (managed dropdown) -->
+        <div class="field">
+          <label for="milestoneName">Milestone</label>
+          <div class="combo-row">
+            <div class="combo" id="milestoneCombo">
+              <input type="text" id="milestoneName" placeholder="Select or type…" autocomplete="off" />
+              <button type="button" class="combo-toggle" id="milestoneToggle" aria-label="Open milestone list">▾</button>
+              <div class="combo-menu" id="milestoneMenu"></div>
+            </div>
+            <button type="button" class="mini-tool-btn" id="milestoneAddBtn" title="Add to list" aria-label="Add milestone to list">＋</button>
+            <button type="button" class="mini-tool-btn danger" id="milestoneDelBtn" title="Delete from list" aria-label="Delete milestone from list">🗑</button>
+          </div>
+          <div class="hint">Choose from the list or type a new milestone. Use <b>＋</b> to add, <b>🗑</b> to delete from dropdown list.</div>
+        </div>
+
+<div class="field">
+          <label for="mfSharedDate">MF shared date</label>
+          <input type="text" id="mfSharedDate" placeholder="YYYY-MM-DD" />
+        </div>
+        <div class="field">
+          <label for="mfFeedback">MF feedback</label>
+          <textarea id="mfFeedback" placeholder="MF feedback (optional)…"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="dmuQuality">DMU Quality</label>
+          <div class="combo-row">
+            <div class="combo" id="dmuQualityCombo">
+              <input type="text" id="dmuQuality" placeholder="Select or type…" autocomplete="off" />
+              <button type="button" class="combo-toggle" id="dmuQualityToggle" aria-label="Open DMU Quality list">▾</button>
+              <div class="combo-menu" id="dmuQualityMenu"></div>
+            </div>
+            <button type="button" class="mini-tool-btn" id="dmuQualityAddBtn" title="Add to list" aria-label="Add DMU Quality to list">＋</button>
+            <button type="button" class="mini-tool-btn danger" id="dmuQualityDelBtn" title="Delete from list" aria-label="Delete DMU Quality from list">🗑</button>
+          </div>
+          <div class="hint">Choose from the list or type a new DMU Quality. Use <b>＋</b> to add, <b>🗑</b> to delete from dropdown list.</div>
+        </div>
+        <div class="field">
+          <label for="linxQuality">Linx Quality</label>
+          <div class="combo-row">
+            <div class="combo" id="linxQualityCombo">
+              <input type="text" id="linxQuality" placeholder="Select or type…" autocomplete="off" />
+              <button type="button" class="combo-toggle" id="linxQualityToggle" aria-label="Open Linx Quality list">▾</button>
+              <div class="combo-menu" id="linxQualityMenu"></div>
+            </div>
+            <button type="button" class="mini-tool-btn" id="linxQualityAddBtn" title="Add to list" aria-label="Add Linx Quality to list">＋</button>
+            <button type="button" class="mini-tool-btn danger" id="linxQualityDelBtn" title="Delete from list" aria-label="Delete Linx Quality from list">🗑</button>
+          </div>
+          <div class="hint">Choose from the list or type a new Linx Quality. Use <b>＋</b> to add, <b>🗑</b> to delete from dropdown list.</div>
+        </div>
+
+        <div class="field">
+          <label for="deliveryStatus">Delivery Status (auto)</label>
+          <select id="deliveryStatus" class="delivery-select">
+            <option value="PDMP to be diffused">PDMP to be diffused</option>
+            <option value="LinxCAT to be diffused">LinxCAT to be diffused</option>
+            <option value="PDMP delay">PDMP delay</option>
+            <option value="LinxCAT delay">LinxCAT delay</option>
+          </select>
+          <div class="hint">
+            Status is auto-computed from planning &amp; delivery dates.<br>
+            • Only PDMP delivered → PDMP to be diffused / delay<br>
+            • PDMP &amp; Linx delivered → LinxCAT to be diffused / delay
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="comment">Comment</label>
+          <textarea id="comment" placeholder="Optional explanation or context..."></textarea>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-ghost" onclick="saveEntryOnly()" id="saveEntryBtn">Save entry</button>
+          <button class="btn btn-warn btn-hidden" onclick="saveChangesOnly()" id="saveChangesBtn">Save changes</button>
+          <button class="btn btn-ghost btn-hidden" onclick="cancelEdit()" id="cancelEditBtn">Cancel edit</button>
+          <button class="btn btn-primary" onclick="downloadExcel()">Download Excel</button>
+        </div>
+        <div class="micro">Each row keeps its own protected delete confirmation.</div>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div class="pane-review">
+        <div class="status-card">
+          <div class="status-title">Total saved entries</div>
+          <div class="status-value" id="totalCount">0</div>
+          <div class="status-sub" id="loadStatus">No saved data yet.</div>
+        </div>
+
+        <div class="ribbon-card">
+          <div class="ribbon-head">
+            <div class="ribbon-title">Project Ribbon</div>
+            <div class="ribbon-sub">Horizontal overview with computed status color.</div>
+          </div>
+          <div class="ribbon-track" id="projectRibbon"></div>
+        </div>
+
+        <div class="filter-card">
+          <div class="filter-head">
+            <div>
+              <div class="filter-title">Saved entries filters</div>
+              <div class="filter-sub">Table filters + optional dashboard sync.</div>
+            </div>
+          </div>
+          <div class="filter-body">
+            <div>
+              <label for="filterProject">Project Name</label>
+              <div class="combo" id="filterProjectCombo">
+                <input id="filterProject" type="text" placeholder="Type to filter..." autocomplete="off" />
+                <button type="button" class="combo-toggle" id="filterProjectToggle" aria-label="Open Project list">▾</button>
+                <div class="combo-menu" id="filterProjectMenu"></div>
+              </div>
+            </div>
+            <div>
+              <label for="filterPFN">PFN name</label>
+              <div class="combo" id="filterPFNCombo">
+                <input id="filterPFN" type="text" placeholder="Type to filter..." autocomplete="off" />
+                <button type="button" class="combo-toggle" id="filterPFNToggle" aria-label="Open PFN list">▾</button>
+                <div class="combo-menu" id="filterPFNMenu"></div>
+              </div>
+            </div>
+            <div>
+              <label for="filterStatus">Delivery Status</label>
+              <select id="filterStatus">
+                <option value="All">All</option>
+                <option value="PDMP to be diffused">PDMP to be diffused</option>
+                <option value="LinxCAT to be diffused">LinxCAT to be diffused</option>
+                <option value="PDMP delay">PDMP delay</option>
+                <option value="LinxCAT delay">LinxCAT delay</option>
+              </select>
+            </div>
+            <div>
+              <button class="btn btn-ghost filter-mini" onclick="clearFilters()">Clear filters</button>
+            </div>
+          </div>
+          <div class="filter-footer">
+            <span class="filter-count" id="filterCount">Showing 0 of 0</span>
+            <label class="toggle">
+              <input type="checkbox" id="applyFiltersDashboard" />
+              Apply filters to dashboard
+            </label>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <div>
+              <div class="table-head-title">Saved entries (In-Page)</div>
+              <div class="table-head-sub">PDMP / LinxCAT fields · built for large lists</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <div class="table-inner" id="tableWrap"></div>
+          </div>
+        </div>
+
+        <div class="dash-card" style="margin-top:12px;">
+          <div class="dash-head">
+            <div>
+              <div class="dash-title">Delivery dashboard</div>
+              <div class="dash-sub">Status distribution + PFN aggregation</div>
+            </div>
+          </div>
+          <div class="dash-body">
+            <div class="chart-box">
+              <div class="chart-box-title">Overall delivery status</div>
+              <div class="chart-canvas-wrap"><canvas id="completionChart"></canvas></div>
+            </div>
+            <div class="chart-box">
+              <div class="chart-box-title">Delivery status by PFN (aggregated)</div>
+              <div class="chart-canvas-wrap dynamic scroll-x" id="pfnChartWrap"><div class="chart-inner" id="pfnInner"><canvas id="pfnChart"></canvas></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-card" style="margin-top:12px;">
+          <div class="dash-head">
+            <div>
+              <div class="dash-title">Extra indicators</div>
+              <div class="dash-sub">Timeline Linx M1 + DMU &amp; Linx Quality (global / PFN / project)</div>
+            </div>
+          </div>
+          <div class="extra-body">
+            <div class="chart-box">
+              <div class="chart-title-row"><div class="chart-box-title">Timeline Linx M1 (from PDMP done to Linx done)</div><div class="chart-meta-pill" id="timelineAvgPill">Avg: —</div></div>
+              <div class="chart-canvas-wrap dynamic scroll-x"><div class="chart-inner" id="timelineInner"><canvas id="timelineChart"></canvas></div></div>
+            </div>
+            <div class="chart-box">
+              <div class="chart-box-title">DMU Quality &amp; Linx Quality</div>
+              <div class="extra-quality-grid">
+                <div>
+                  <div class="chart-box-sub">Global distribution (DMU + Linx)</div>
+                  <div class="chart-canvas-wrap mini"><canvas id="qualityGlobalChart"></canvas></div>
+                </div>
+                <div>
+                  <div class="chart-box-sub">DMU Quality by PFN</div>
+                  <div class="chart-canvas-wrap mini scroll-x"><div class="chart-inner" id="qualityPfnInner"><canvas id="qualityPfnChart"></canvas></div></div>
+                </div>
+                <div>
+                  <div class="chart-box-sub">Linx Quality by Project</div>
+                  <div class="chart-canvas-wrap mini scroll-x"><div class="chart-inner" id="qualityProjectInner"><canvas id="qualityProjectChart"></canvas></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /pane-review -->
+    </div>
+  </div>
+    </div>
+  </div>
+
+<!-- Confirm modal -->
+<div class="modal-backdrop" id="confirmBackdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal">
+    <div class="modal-title" id="confirmTitle">Confirm action</div>
+    <div class="modal-message" id="confirmMessage">Are you sure you want to delete this entry?</div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-no" id="confirmNoBtn">No</button>
+      <button class="modal-btn modal-yes" id="confirmYesBtn">Yes</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+  const STORAGE_KEY = "project_records_pmdp_linxcat_v1";
+  const PROJECT_NAMES_KEY = "project_names_pmdp_linxcat_v1";
+  const PLANT_NAMES_KEY   = "plant_names_pmdp_linxcat_v1";
+  const GFE_NAMES_KEY     = "gfe_names_pmdp_linxcat_v1";
+  
+  // --- V6: Make indicators & chart labels clearer (global defaults) ---
+  const UI_COLORS = {
+    text: "rgba(246,248,255,0.90)",
+    textSoft: "rgba(246,248,255,0.80)",
+    grid: "rgba(255,255,255,0.10)"
+  };
+  if(window.Chart){
+    Chart.defaults.color = UI_COLORS.textSoft;
+    Chart.defaults.font.family = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.plugins.legend.labels.color = UI_COLORS.textSoft;
+  }
+const PFN_NAMES_KEY     = "pfn_names_pmdp_linxcat_v1";
+  const MILESTONE_NAMES_KEY = "milestone_names_pmdp_linxcat_v1";
+  const QUALITY_NAMES_KEY   = "quality_names_pdmp_linxcat_v1";
+  const DEFAULT_QUALITIES = ["OK","KO","Open"];
+  const DEFAULT_PROJECTS = [
+    "FLEXEVAN -X8310/X8311",
+    "X1322",
+    "P1311",
+    "X1310",
+    "X1318",
+    "X1320",
+    "X1325",
+    "X1326"
+  ];
+
+  const DEFAULT_PLANTS = [
+    "ZOLLERN",
+    "SOVAB",
+    "DOUAI",
+    "PALENCIA",
+    "PITESTI",
+    "CURITIBA",
+    "MAUBEUGE",
+    "NOVO MESTO",
+    "TAN/CASA",
+    "CORDOBA",
+    "SOFASA",
+    "FR",
+    "BURSA"
+  ];
+  const DEFAULT_GFES = [];
+  const DEFAULT_PFNS = [];
+  const DEFAULT_MILESTONES = ["M0","M1","M2","M3","M4","M5","Gate","Review"];
+
+
+  let records = loadRecords();
+  let projectNames = loadProjectNames();
+
+  let editingIndex = null;
+  let pendingDeleteIndex = null;
+
+  let completionChartInstance = null;
+  let pfnChartInstance = null;
+  let timelineChartInstance = null;
+  let qualityGlobalChartInstance = null;
+  let qualityPfnChartInstance = null;
+  let qualityProjectChartInstance = null;
+
+  let filterProject = "";
+  let filterPFN = "";
+  let filterStatus = "All";
+  let applyFiltersToDashboard = false;
+
+  
+  function setChartInnerWidth(innerId, labelCount, basePx=640, perLabelPx=85, maxPx=3600){
+    const el = document.getElementById(innerId);
+    if(!el) return;
+    const w = Math.min(maxPx, Math.max(basePx, Math.round(basePx + Math.max(0, labelCount-6)*perLabelPx)));
+    el.style.width = w + "px";
+  }
+
+  function enableHorizontalWheelScroll(){
+    document.querySelectorAll(".chart-canvas-wrap.scroll-x").forEach(wrap => {
+      // Convert vertical wheel to horizontal scroll when horizontal overflow exists
+      wrap.addEventListener("wheel", (e) => {
+        if(wrap.scrollWidth > wrap.clientWidth){
+          // keep normal vertical scroll if user holds Ctrl/Meta (browser zoom) or Shift (native horizontal)
+          if(e.ctrlKey || e.metaKey || e.shiftKey) return;
+          wrap.scrollLeft += e.deltaY;
+          e.preventDefault();
+        }
+      }, { passive:false });
+    });
+  }
+// --- V8: Page-level horizontal scroll on 100% zoom + mouse pan (Space + drag) ---
+function enablePageScrollUX(){
+  const page = document.querySelector(".page-scroll");
+  if(!page) return;
+
+  // Shift + mouse wheel => horizontal scroll (whole page)
+  page.addEventListener("wheel", (e) => {
+    if(page.scrollWidth <= page.clientWidth) return;
+    if(e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX)){
+      page.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive:false });
+
+  // Space + drag to pan (both axes). Does not interfere with inputs.
+  let isSpaceDown = false;
+  let isDragging = false;
+  let startX = 0, startY = 0, startScrollLeft = 0, startScrollTop = 0;
+
+  const isInteractive = (el) => {
+    return !!(el && el.closest && el.closest("input, textarea, select, button, a, .combo-menu"));
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if(e.code !== "Space" || isSpaceDown) return;
+
+    const ae = document.activeElement;
+    const typing = ae && ["INPUT","TEXTAREA","SELECT"].includes(ae.tagName);
+    if(typing) return;
+
+    isSpaceDown = true;
+    page.classList.add("panning-active");
+    e.preventDefault();
+  }, { passive:false });
+
+  document.addEventListener("keyup", (e) => {
+    if(e.code !== "Space") return;
+    isSpaceDown = false;
+    isDragging = false;
+    page.classList.remove("panning-active");
+    page.classList.remove("is-dragging");
+  });
+
+  page.addEventListener("mousedown", (e) => {
+    if(!isSpaceDown) return;
+    if(e.button !== 0) return;
+    if(isInteractive(e.target)) return;
+
+    isDragging = true;
+    page.classList.add("is-dragging");
+    startX = e.clientX;
+    startY = e.clientY;
+    startScrollLeft = page.scrollLeft;
+    startScrollTop = page.scrollTop;
+    e.preventDefault();
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if(!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    page.scrollLeft = startScrollLeft - dx;
+    page.scrollTop  = startScrollTop  - dy;
+  });
+
+  window.addEventListener("mouseup", () => {
+    if(!isDragging) return;
+    isDragging = false;
+    page.classList.remove("is-dragging");
+  });
+}
+
+  // --- View tools: zoom / fit width (keeps full dashboard visible) ---
+  const VIEW_ZOOM_KEY = "ui_zoom_pmdp_linxcat_v1";
+  const VIEW_DENSITY_KEY = "ui_density_pdmp_linxcat_v1";
+  const BASE_SHELL_WIDTH = 1650;
+
+  function applyShellZoom(scale){
+    const shell = document.querySelector(".shell");
+    const page  = document.querySelector(".page-scroll");
+    if(!shell || !page) return;
+    const s = Math.max(0.5, Math.min(1, Number(scale) || 1));
+
+    // Prefer CSS zoom where supported (Chrome/Edge), fallback to transform scale.
+    const supportsZoom = typeof shell.style.zoom !== "undefined";
+
+    if(supportsZoom){
+      shell.style.zoom = String(s);
+      shell.style.transform = "";
+      shell.style.transformOrigin = "";
+    }else{
+      shell.style.zoom = "";
+      shell.style.transform = `scale(${s})`;
+      shell.style.transformOrigin = "top center";
+    }
+
+    try{ localStorage.setItem(VIEW_ZOOM_KEY, String(s)); }catch{}
+    // notify other components (date pickers) that zoom changed
+    try{ window.dispatchEvent(new Event("dashboardzoomchange")); }catch{}
+  }
+
+  function fitWidth(){
+    const page  = document.querySelector(".page-scroll");
+    const shell = document.querySelector(".shell");
+    if(!page || !shell) return;
+
+    const available = page.clientWidth - 28;
+    const scale = Math.min(1, available / BASE_SHELL_WIDTH);
+    applyShellZoom(scale);
+
+    const sel = document.getElementById("uiZoom");
+    if(sel){
+      // set to closest option (including 0.5)
+      const opts = Array.from(sel.options).map(o => Number(o.value));
+      const nearest = opts.reduce((a,b) => (Math.abs(b-scale) < Math.abs(a-scale) ? b : a), opts[0] || 1);
+      sel.value = String(nearest);
+    }
+  }
+
+  function initViewTools(){
+    const sel = document.getElementById("uiZoom");
+    const fitBtn = document.getElementById("fitBtn");
+    const resetBtn = document.getElementById("resetViewBtn");
+
+    // restore saved zoom
+    let saved = "1";
+    try{ saved = localStorage.getItem(VIEW_ZOOM_KEY) || "1"; }catch{}
+    const s = Number(saved) || 1;
+
+    if(sel){
+      const opts = Array.from(sel.options).map(o => Number(o.value));
+      const nearest = opts.reduce((a,b) => (Math.abs(b-s) < Math.abs(a-s) ? b : a), opts[0] || 1);
+      sel.value = String(nearest);
+      sel.addEventListener("change", () => applyShellZoom(sel.value));
+    }
+    applyShellZoom(s);
+
+    // Density selector removed: always enforce Compact (no design changes, only spacing)
+    try{ localStorage.setItem(VIEW_DENSITY_KEY, "compact"); }catch{}
+    applyDensityMode("compact");
+
+    if(fitBtn) fitBtn.addEventListener("click", fitWidth);
+    if(resetBtn) resetBtn.addEventListener("click", () => {
+      if(sel) sel.value = "1";
+      applyShellZoom(1);
+    });
+
+    window.addEventListener("resize", () => {
+      let current = 1;
+      try{ current = Number(localStorage.getItem(VIEW_ZOOM_KEY) || "1") || 1; }catch{}
+      if(current < 1) {
+        const page  = document.querySelector(".page-scroll");
+        if(!page) return;
+        const available = page.clientWidth - 28;
+        const maxScale = Math.min(1, available / BASE_SHELL_WIDTH);
+        if(current > maxScale) applyShellZoom(maxScale);
+      }
+    });
+  }
+
+
+
+const STATUS = {
+    PMDP_TBD: "PDMP to be diffused",
+    LINX_TBD: "LinxCAT to be diffused",
+    PMDP_DELAY: "PDMP delay",
+    LINX_DELAY: "LinxCAT delay"
+  };
+  const STATUS_ORDER = [
+    STATUS.PMDP_TBD,
+    STATUS.LINX_TBD,
+    STATUS.PMDP_DELAY,
+    STATUS.LINX_DELAY
+  ];
+
+  Chart.register(ChartDataLabels);
+
+  function normalizeStatusValue(v){
+    const s = String(v || "").trim().toLowerCase();
+    if((s.includes("pmdp") || s.includes("pdmp")) && s.includes("diff")) return STATUS.PMDP_TBD;
+    if(s.includes("linx") && s.includes("diff")) return STATUS.LINX_TBD;
+    if((s.includes("pmdp") || s.includes("pdmp")) && s.includes("delay")) return STATUS.PMDP_DELAY;
+    if(s.includes("linx") && s.includes("delay")) return STATUS.LINX_DELAY;
+    return STATUS.PMDP_TBD;
+  }
+
+  function normalizeRecord(r){
+    return {
+      family: r?.family ?? "",
+      projectName: r?.projectName ?? "",
+      diversity: r?.diversity ?? "",
+      pfnName: r?.pfnName ?? "",
+      gfe: r?.gfe ?? "",
+      plantOfProduction: r?.plantOfProduction ?? "",
+      pmdpPlanning: r?.pmdpPlanning ?? "",
+      pmdpDelivery: r?.pmdpDelivery ?? "",
+      linxPlanning: r?.linxPlanning ?? "",
+      linxDelivery: r?.linxDelivery ?? "",
+      milestoneName: r?.milestoneName ?? "",
+mfSharedDate: r?.mfSharedDate ?? "",
+      mfFeedback: r?.mfFeedback ?? "",
+      dmuQuality: r?.dmuQuality ?? "",
+      linxQuality: r?.linxQuality ?? "",
+      deliveryStatus: normalizeStatusValue(r?.deliveryStatus),
+      comment: r?.comment ?? ""
+    };
+  }
+
+  function loadRecords(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return [];
+      const parsed = JSON.parse(raw);
+      if(!Array.isArray(parsed)) return [];
+      return parsed.map(normalizeRecord);
+    }catch{
+      return [];
+    }
+  }
+
+  // --- Shared storage (SharePoint file) ---
+  // Stores the same records for ALL users in a JSON file placed in the SAME SharePoint folder as this HTML.
+  const SHARED_DATA_FILENAME = "pfn_activity_dashboard_data.json";
+
+  function getFolderServerRelativeUrl(){
+    try{
+      const path = decodeURIComponent(location.pathname || "");
+      const parts = path.split("/");
+      parts.pop(); // remove current file name
+      const folder = parts.join("/") || "/";
+      return folder.endsWith("/") ? folder.slice(0, -1) : folder;
+    }catch{
+      // fallback: best effort
+      const p = (location.pathname || "").split("/");
+      p.pop();
+      return p.join("/");
+    }
+  }
+
+  function getSharedFileServerRelativeUrl(){
+    const folder = getFolderServerRelativeUrl();
+    return (folder ? folder : "") + "/" + SHARED_DATA_FILENAME;
+  }
+
+  let __spDigest = null;
+  let __spDigestExp = 0;
+
+  async function getSharePointDigest(){
+    const now = Date.now();
+    if(__spDigest && now < (__spDigestExp - 30_000)) return __spDigest;
+
+    const r = await fetch("/_api/contextinfo", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json;odata=verbose",
+        "Content-Type": "application/json;odata=verbose"
+      },
+      credentials: "same-origin"
+    });
+
+    const j = await r.json();
+    const info = j && j.d && j.d.GetContextWebInformation ? j.d.GetContextWebInformation : null;
+    __spDigest = info ? info.FormDigestValue : null;
+    // timeout is in seconds
+    const timeoutSec = info ? (info.FormDigestTimeoutSeconds || 1800) : 1800;
+    __spDigestExp = now + (timeoutSec * 1000);
+    return __spDigest;
+  }
+
+  async function loadSharedRecords(){
+    try{
+      const fileUrl = getSharedFileServerRelativeUrl();
+      const r = await fetch(fileUrl, { method: "GET", cache: "no-store", credentials: "same-origin" });
+      if(!r.ok) return [];
+      const txt = await r.text();
+      if(!txt) return [];
+      const parsed = JSON.parse(txt);
+      if(!Array.isArray(parsed)) return [];
+      return parsed.map(normalizeRecord);
+    }catch{
+      return [];
+    }
+  }
+
+  async function saveSharedRecords(list){
+    try{
+      const folder = getFolderServerRelativeUrl();
+      const digest = await getSharePointDigest();
+      if(!digest) return;
+
+      const api = `/_api/web/GetFolderByServerRelativeUrl('${folder.replace(/'/g, "''")}')/Files/add(url='${SHARED_DATA_FILENAME.replace(/'/g, "''")}',overwrite=true)`;
+      await fetch(api, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json;odata=verbose",
+          "X-RequestDigest": digest
+        },
+        body: new Blob([JSON.stringify(list)], { type: "application/json" }),
+        credentials: "same-origin"
+      });
+    }catch{
+      // ignore (best effort)
+    }
+  }
+
+  function persist(){
+    // keep local copy (fast UX) + sync to SharePoint file (shared for everyone)
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }catch{}
+    // fire-and-forget shared save
+    saveSharedRecords(records);
+  }
+
+  function loadProjectNames(){
+    let stored = [];
+    try{
+      const raw = localStorage.getItem(PROJECT_NAMES_KEY);
+      if(raw) stored = JSON.parse(raw);
+    }catch{}
+    const map = new Map();
+    [...DEFAULT_PROJECTS, ...stored].forEach(name => {
+      if(!name) return;
+      const key = String(name).trim().toLowerCase();
+      if(!key) return;
+      if(!map.has(key)) map.set(key, String(name).trim());
+    });
+    return [...map.values()];
+  }
+  function persistProjectNames(){
+    localStorage.setItem(PROJECT_NAMES_KEY, JSON.stringify(projectNames));
+  }
+
+
+  function loadNameList(storageKey, defaults){
+    let stored = [];
+    try{
+      const raw = localStorage.getItem(storageKey);
+      if(raw) stored = JSON.parse(raw);
+    }catch{}
+    const map = new Map();
+    [...(defaults || []), ...(stored || [])].forEach(v => {
+      if(!v) return;
+      const key = String(v).trim().toLowerCase();
+      if(!key) return;
+      if(!map.has(key)) map.set(key, String(v).trim());
+    });
+    return [...map.values()];
+  }
+
+  
+  // Load list from storage using defaults only when nothing was saved yet.
+  // This keeps the UX consistent with "delete from dropdown list" (a deleted default stays deleted).
+  function loadNameListStrict(storageKey, defaults){
+    let stored = null;
+    try{
+      const raw = localStorage.getItem(storageKey);
+      if(raw) stored = JSON.parse(raw);
+    }catch{}
+    const base = Array.isArray(stored) ? stored : (defaults || []);
+    const map = new Map();
+    (base || []).forEach(v => {
+      if(!v) return;
+      const key = String(v).trim().toLowerCase();
+      if(!key) return;
+      if(!map.has(key)) map.set(key, String(v).trim());
+    });
+    return [...map.values()];
+  }
+
+function persistNameList(storageKey, arr){
+    localStorage.setItem(storageKey, JSON.stringify(arr || []));
+  }
+
+  function addValueToList(storageKey, currentList, value){
+    const v = String(value || "").trim();
+    if(!v) return currentList;
+    const key = v.toLowerCase();
+    const map = new Map();
+    currentList.forEach(x => map.set(String(x).trim().toLowerCase(), String(x).trim()));
+    if(!map.has(key)) map.set(key, v);
+    const next = [...map.values()];
+    persistNameList(storageKey, next);
+    return next;
+  }
+
+  function removeValueFromList(storageKey, currentList, value){
+    const v = String(value || "").trim();
+    if(!v) return currentList;
+    const key = v.toLowerCase();
+    const next = (currentList || []).filter(x => String(x).trim().toLowerCase() !== key);
+    persistNameList(storageKey, next);
+    return next;
+  }
+
+  // Generic confirm (reuses the existing modal)
+  let confirmCallback = null;
+  function askConfirm(title, message, onYes){
+    const titleEl = document.getElementById("confirmTitle");
+    const msgEl = document.getElementById("confirmMessage");
+    if(titleEl) titleEl.textContent = title || "Confirm";
+    if(msgEl) msgEl.textContent = message || "Are you sure?";
+    confirmCallback = typeof onYes === "function" ? onYes : null;
+    openConfirmModal();
+  }
+
+  // Styled combo dropdown (input + menu)
+  function setupCombo(comboId, inputId, menuId, toggleId, addBtnId, delBtnId, getList, setList, labelForConfirm){
+    const combo = document.getElementById(comboId);
+    const input = document.getElementById(inputId);
+    const menu = document.getElementById(menuId);
+    const toggle = document.getElementById(toggleId);
+    const addBtn = document.getElementById(addBtnId);
+    const delBtn = document.getElementById(delBtnId);
+    if(!combo || !input || !menu || !toggle || !addBtn || !delBtn) return;
+
+    const render = () => {
+      const list = (getList() || []);
+      const q = String(input.value || "").trim().toLowerCase();
+      const filtered = q ? list.filter(x => String(x).toLowerCase().includes(q)) : list;
+
+      if(!filtered.length){
+        menu.innerHTML = `<div class="combo-empty">No matches</div>`;
+        return;
+      }
+      menu.innerHTML = filtered.map(v => `<div class="combo-item" data-value="${escapeHtml(String(v))}">${escapeHtml(String(v))}</div>`).join("");
+      // click handlers
+      menu.querySelectorAll(".combo-item").forEach(item => {
+        item.addEventListener("click", () => {
+          input.value = item.getAttribute("data-value") || "";
+          close();
+          // status may depend on other fields, keep in sync:
+          autoUpdateStatusFromDates();
+        });
+      });
+    };
+
+    const open = () => { combo.classList.add("open"); render(); };
+    const close = () => { combo.classList.remove("open"); };
+
+    toggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      if(combo.classList.contains("open")) close(); else open();
+    });
+
+    input.addEventListener("input", () => { if(combo.classList.contains("open")) render(); });
+    input.addEventListener("focus", () => { /* keep closed by default */ });
+
+    document.addEventListener("click", (e) => {
+      if(!combo.contains(e.target)) close();
+    });
+
+    addBtn.addEventListener("click", () => {
+      const v = String(input.value || "").trim();
+      if(!v) return;
+      setList(addValueToList(setList.storageKey, getList(), v));
+      render();
+    });
+
+    delBtn.addEventListener("click", () => {
+      const v = String(input.value || "").trim();
+      if(!v) return;
+      askConfirm(
+        "Delete from list",
+        `Remove “${v}” from ${labelForConfirm || "the list"}? (Saved entries will NOT be changed)`,
+        () => {
+          setList(removeValueFromList(setList.storageKey, getList(), v));
+          render();
+        }
+      );
+    });
+
+    // initial render state
+    render();
+  }
+
+  
+  // Combo picker dropdown (input + menu + toggle). No list management buttons.
+  function setupComboPicker(comboId, inputId, menuId, toggleId, getList){
+    const combo = document.getElementById(comboId);
+    const input = document.getElementById(inputId);
+    const menu = document.getElementById(menuId);
+    const toggle = document.getElementById(toggleId);
+    if(!combo || !input || !menu || !toggle) return;
+
+    const close = () => combo.classList.remove("open");
+    const open  = () => { combo.classList.add("open"); render(); };
+
+    const render = () => {
+      const q = String(input.value || "").trim().toLowerCase();
+      const list = (typeof getList === "function" ? getList() : []) || [];
+      const filtered = !q ? list : list.filter(x => String(x).toLowerCase().includes(q));
+      menu.innerHTML = "";
+      if(filtered.length === 0){
+        const empty = document.createElement("div");
+        empty.className = "combo-item empty";
+        empty.textContent = "No results";
+        menu.appendChild(empty);
+        return;
+      }
+      filtered.forEach(v => {
+        const item = document.createElement("div");
+        item.className = "combo-item";
+        item.textContent = v;
+        item.addEventListener("click", () => {
+          input.value = v;
+          // Trigger existing listeners (filters rely on input events)
+          input.dispatchEvent(new Event("input", { bubbles:true }));
+          close();
+        });
+        menu.appendChild(item);
+      });
+    };
+
+    toggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      if(combo.classList.contains("open")) close(); else open();
+    });
+
+    input.addEventListener("input", () => { if(combo.classList.contains("open")) render(); });
+
+    document.addEventListener("click", (e) => {
+      if(!combo.contains(e.target)) close();
+    });
+  }
+
+function initManagedCombos(){
+    // Load lists from storage
+    plantNames = loadNameList(PLANT_NAMES_KEY, DEFAULT_PLANTS);
+    gfeNames   = loadNameList(GFE_NAMES_KEY, DEFAULT_GFES);
+    pfnNames   = loadNameList(PFN_NAMES_KEY, DEFAULT_PFNS);
+    milestoneNames = loadNameList(MILESTONE_NAMES_KEY, DEFAULT_MILESTONES);
+    qualityNames = loadNameListStrict(QUALITY_NAMES_KEY, DEFAULT_QUALITIES);
+
+    // Small setters with attached storageKey
+    const setPlants = (v) => { plantNames = v; };
+    setPlants.storageKey = PLANT_NAMES_KEY;
+    const setGfe = (v) => { gfeNames = v; };
+    setGfe.storageKey = GFE_NAMES_KEY;
+    const setPfn = (v) => { pfnNames = v; };
+    setPfn.storageKey = PFN_NAMES_KEY;
+    const setMilestones = (v) => { milestoneNames = v; };
+    setMilestones.storageKey = MILESTONE_NAMES_KEY;
+    const setQualities = (v) => { qualityNames = v; };
+    setQualities.storageKey = QUALITY_NAMES_KEY;
+
+    setupCombo("gfeCombo","gfe","gfeMenu","gfeToggle","gfeAddBtn","gfeDelBtn", () => gfeNames, setGfe, "GFE list");
+    setupCombo("plantCombo","plantOfProduction","plantMenu","plantToggle","plantAddBtn","plantDelBtn", () => plantNames, setPlants, "plant list");
+    setupCombo("pfnCombo","pfnName","pfnMenu","pfnToggle","pfnAddBtn","pfnDelBtn", () => pfnNames, setPfn, "PFN list");
+    setupCombo("milestoneCombo","milestoneName","milestoneMenu","milestoneToggle","milestoneAddBtn","milestoneDelBtn", () => milestoneNames, setMilestones, "milestone list");
+
+    // DMU & Linx Quality (managed dropdown: + add, 🗑 delete)
+    setupCombo("dmuQualityCombo","dmuQuality","dmuQualityMenu","dmuQualityToggle","dmuQualityAddBtn","dmuQualityDelBtn", () => qualityNames, setQualities, "Quality list");
+    setupCombo("linxQualityCombo","linxQuality","linxQualityMenu","linxQualityToggle","linxQualityAddBtn","linxQualityDelBtn", () => qualityNames, setQualities, "Quality list");
+
+    // Saved entries filters: dropdown picker (no list management here)
+    setupComboPicker("filterProjectCombo","filterProject","filterProjectMenu","filterProjectToggle", () => projectNames);
+    setupComboPicker("filterPFNCombo","filterPFN","filterPFNMenu","filterPFNToggle", () => pfnNames);
+  }
+
+
+
+  function buildProjectNameSelect(selectedValue){
+    const select = document.getElementById("projectName");
+    if(!select) return;
+    const prev = selectedValue ?? select.value;
+
+    select.innerHTML = "";
+    const optPlaceholder = document.createElement("option");
+    optPlaceholder.value = "";
+    optPlaceholder.textContent = "Select project…";
+    select.appendChild(optPlaceholder);
+
+    projectNames.forEach(name => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    });
+
+    const addOpt = document.createElement("option");
+    addOpt.value = "__add_new__";
+    addOpt.textContent = "➕ Add new project…";
+    select.appendChild(addOpt);
+
+    if(prev){
+      const found = projectNames.find(n => n.toLowerCase() === prev.toLowerCase());
+      if(found){
+        select.value = found;
+        return;
+      }
+    }
+    select.value = "";
+  }
+
+  function handleProjectSelectChange(e){
+    const value = e.target.value;
+    if(value !== "__add_new__") return;
+    const name = prompt("Enter new project name:");
+    if(!name){
+      buildProjectNameSelect("");
+      return;
+    }
+    const trimmed = name.trim();
+    if(!trimmed){
+      buildProjectNameSelect("");
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    const exists = projectNames.some(n => n.toLowerCase() === key);
+    if(!exists){
+      projectNames.push(trimmed);
+      persistProjectNames();
+    }
+    buildProjectNameSelect(trimmed);
+  }
+
+  function ensureProjectNameInList(name){
+    const trimmed = (name || "").trim();
+    if(!trimmed) return;
+    const key = trimmed.toLowerCase();
+    const exists = projectNames.some(n => n.toLowerCase() === key);
+    if(!exists){
+      projectNames.push(trimmed);
+      persistProjectNames();
+    }
+    buildProjectNameSelect(trimmed);
+  }
+
+  function refreshCounters(){
+    const total = records.length;
+    document.getElementById("totalCount").textContent = String(total);
+    document.getElementById("loadStatus").textContent =
+      total ? "Saved data loaded from this browser." : "No saved data yet.";
+  }
+
+  function normalizedKey(value){
+    const raw = (value || "").trim();
+    if(!raw){
+      return { key: "unassigned", label: "Unassigned" };
+    }
+    return { key: raw.toLowerCase(), label: raw };
+  }
+
+  function normalizedQuality(value){
+    const raw = (value || "").trim();
+    if(!raw) return null;
+    const lower = raw.toLowerCase();
+    let label;
+    if(lower === "ok") label = "OK";
+    else if(lower === "ko") label = "KO";
+    else if(lower === "open") label = "Open";
+    else label = raw;
+    return { key: lower, label };
+  }
+
+  function getFormValues(){
+    return normalizeRecord({
+      family: document.getElementById("family").value.trim(),
+      projectName: document.getElementById("projectName").value.trim(),
+      diversity: document.getElementById("diversity").value.trim(),
+      pfnName: document.getElementById("pfnName").value.trim(),
+      gfe: document.getElementById("gfe").value.trim(),
+      plantOfProduction: (document.getElementById("plantOfProduction")?.value || "").trim(),
+      pmdpPlanning: document.getElementById("pmdpPlanning").value.trim(),
+      pmdpDelivery: document.getElementById("pmdpDelivery").value.trim(),
+      linxPlanning: document.getElementById("linxPlanning").value.trim(),
+      linxDelivery: document.getElementById("linxDelivery").value.trim(),
+      milestoneName: document.getElementById("milestoneName").value.trim(),
+mfSharedDate: document.getElementById("mfSharedDate").value.trim(),
+      mfFeedback: document.getElementById("mfFeedback").value.trim(),
+      dmuQuality: document.getElementById("dmuQuality").value.trim(),
+      linxQuality: document.getElementById("linxQuality").value.trim(),
+      deliveryStatus: document.getElementById("deliveryStatus").value,
+      comment: document.getElementById("comment").value.trim()
+    });
+  }
+
+  function setFormValues(v){
+    const r = normalizeRecord(v || {});
+    document.getElementById("family").value = r.family;
+    buildProjectNameSelect(r.projectName);
+    document.getElementById("gfe").value = r.gfe;
+    document.getElementById("plantOfProduction").value = r.plantOfProduction;
+    document.getElementById("diversity").value = r.diversity;
+    document.getElementById("pfnName").value = r.pfnName;
+    document.getElementById("pmdpPlanning").value = r.pmdpPlanning;
+    document.getElementById("pmdpDelivery").value = r.pmdpDelivery;
+    document.getElementById("linxPlanning").value = r.linxPlanning;
+    document.getElementById("linxDelivery").value = r.linxDelivery;
+    document.getElementById("milestoneName").value = r.milestoneName || "";
+document.getElementById("mfSharedDate").value = r.mfSharedDate;
+    document.getElementById("mfFeedback").value = r.mfFeedback;
+    document.getElementById("dmuQuality").value = r.dmuQuality;
+    document.getElementById("linxQuality").value = r.linxQuality;
+    document.getElementById("deliveryStatus").value = r.deliveryStatus;
+    document.getElementById("comment").value = r.comment;
+    updateDeliveryStatusVisual(r.deliveryStatus);
+  }
+
+  function clearForm(){
+    setFormValues({
+      family:"",
+      projectName:"",
+      diversity:"",
+      pfnName:"",
+      gfe:"",
+      pmdpPlanning:"",
+      pmdpDelivery:"",
+      linxPlanning:"",
+      linxDelivery:"",
+      milestoneName:"",
+mfSharedDate:"",
+      mfFeedback:"",
+      dmuQuality:"",
+      linxQuality:"",
+      deliveryStatus: STATUS.PMDP_TBD,
+      comment:""
+    });
+  }
+
+  function showEditMode(on){
+    const banner = document.getElementById("editModeBanner");
+    const saveChangesBtn = document.getElementById("saveChangesBtn");
+    const cancelEditBtn = document.getElementById("cancelEditBtn");
+    const saveEntryBtn = document.getElementById("saveEntryBtn");
+    if(on){
+      banner.classList.remove("btn-hidden");
+      saveChangesBtn.classList.remove("btn-hidden");
+      cancelEditBtn.classList.remove("btn-hidden");
+      saveEntryBtn.classList.add("btn-hidden");
+    }else{
+      banner.classList.add("btn-hidden");
+      saveChangesBtn.classList.add("btn-hidden");
+      cancelEditBtn.classList.add("btn-hidden");
+      saveEntryBtn.classList.remove("btn-hidden");
+    }
+  }
+
+  function saveEntryOnly(){
+    const entry = getFormValues();
+    if(!entry.projectName){
+      alert("Project Name is required.");
+      return;
+    }
+    ensureProjectNameInList(entry.projectName);
+    records.push(entry);
+    persist();
+    applyAutoCompact();
+    refreshAll();
+    showToast("Project line created.","success");
+    clearForm();
+  }
+
+  function startEdit(index){
+    const item = records[index];
+    if(!item) return;
+    editingIndex = index;
+    setFormValues(item);
+    showEditMode(true);
+
+    // Open Indicators drawer for fast editing (no layout changes)
+    try{ window.openIndicatorsPanel && window.openIndicatorsPanel(); }catch(e){}
+
+    // Scroll inside the drawer (not the whole page)
+    const pane = document.getElementById("capturePane");
+    try{ pane && pane.scrollTo({ top: 0, behavior: "smooth" }); }catch(e){}
+
+    // Focus a key field for instant editing
+    setTimeout(() => {
+      const el = document.getElementById("projectName") || document.getElementById("family");
+      try{ el && el.focus && el.focus(); }catch(e){}
+    }, 120);
+  }
+
+  function saveChangesOnly(){
+    if(editingIndex === null) return;
+    const updated = getFormValues();
+    if(!updated.projectName){
+      alert("Project Name is required.");
+      return;
+    }
+    ensureProjectNameInList(updated.projectName);
+    records[editingIndex] = updated;
+    persist();
+    applyAutoCompact();
+    editingIndex = null;
+    showEditMode(false);
+    refreshAll();
+    showToast("Project line updated.","success");
+    clearForm();
+  }
+
+  function cancelEdit(){
+    editingIndex = null;
+    showEditMode(false);
+    clearForm();
+  }
+
+  function askDelete(index){
+    const item = records[index];
+    if(!item) return;
+    pendingDeleteIndex = index;
+    const msg = document.getElementById("confirmMessage");
+    const project = item.projectName ? `Project: "${item.projectName}"` : "Project: —";
+    const pfn = item.pfnName ? `PFN: "${item.pfnName}"` : "PFN: —";
+    const st = item.deliveryStatus ? `Status: "${item.deliveryStatus}"` : "Status: —";
+    msg.textContent = `Are you sure you want to delete this entry?\n\n${project}\n${pfn}\n${st}`;
+    openConfirmModal();
+  }
+
+  function confirmDelete(){
+    if(pendingDeleteIndex === null) return;
+    const index = pendingDeleteIndex;
+    pendingDeleteIndex = null;
+    records.splice(index, 1);
+    persist();
+    applyAutoCompact();
+    if(editingIndex !== null){
+      if(editingIndex === index){
+        editingIndex = null;
+        showEditMode(false);
+        clearForm();
+      } else if(editingIndex > index){
+        editingIndex -= 1;
+      }
+    }
+    refreshAll();
+  }
+
+  function openConfirmModal(){
+    const backdrop = document.getElementById("confirmBackdrop");
+    backdrop.style.display = "flex";
+    backdrop.setAttribute("aria-hidden", "false");
+  }
+  function closeConfirmModal(){
+    const backdrop = document.getElementById("confirmBackdrop");
+    backdrop.style.display = "none";
+    backdrop.setAttribute("aria-hidden", "true");
+    pendingDeleteIndex = null;
+    confirmCallback = null;
+  }
+  function wireModal(){
+    const backdrop = document.getElementById("confirmBackdrop");
+    const yesBtn = document.getElementById("confirmYesBtn");
+    const noBtn = document.getElementById("confirmNoBtn");
+    yesBtn.addEventListener("click", () => {
+      if(typeof confirmCallback === "function"){
+        const cb = confirmCallback;
+        confirmCallback = null;
+        cb();
+      }else{
+        confirmDelete();
+      }
+      closeConfirmModal();
+    });
+    noBtn.addEventListener("click", () => {
+      confirmCallback = null;
+      closeConfirmModal();
+    });
+    backdrop.addEventListener("click", (e) => {
+      if(e.target === backdrop){
+        confirmCallback = null;
+        closeConfirmModal();
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if(e.key === "Escape"){
+        const isOpen = backdrop.style.display === "flex";
+        if(isOpen){
+          confirmCallback = null;
+          closeConfirmModal();
+        }
+      }
+    });
+  }
+
+  function getFilteredRecords(){
+    const p = filterProject.toLowerCase();
+    const f = filterPFN.toLowerCase();
+    const s = filterStatus;
+    return records.filter(r => {
+      const nameOk = !p || (r.projectName || "").toLowerCase().includes(p);
+      const pfnOk  = !f || (r.pfnName || "").toLowerCase().includes(f);
+      const statusOk = (s === "All") || (r.deliveryStatus === s);
+      return nameOk && pfnOk && statusOk;
+    });
+  }
+  function updateFilterCount(filteredLen){
+    const total = records.length;
+    document.getElementById("filterCount").textContent = `Showing ${filteredLen} of ${total}`;
+  }
+  function wireFilters(){
+    const fp = document.getElementById("filterProject");
+    const ff = document.getElementById("filterPFN");
+    const fs = document.getElementById("filterStatus");
+    const td = document.getElementById("applyFiltersDashboard");
+    fp.addEventListener("input", () => {
+      filterProject = fp.value.trim();
+      renderTable();
+      if(applyFiltersToDashboard) updateDashboard();
+    });
+    ff.addEventListener("input", () => {
+      filterPFN = ff.value.trim();
+      renderTable();
+      if(applyFiltersToDashboard) updateDashboard();
+    });
+    fs.addEventListener("change", () => {
+      filterStatus = fs.value;
+      renderTable();
+      if(applyFiltersToDashboard) updateDashboard();
+    });
+    td.addEventListener("change", () => {
+      applyFiltersToDashboard = td.checked;
+      updateDashboard();
+    });
+  }
+  function clearFilters(){
+    filterProject = "";
+    filterPFN = "";
+    filterStatus = "All";
+    document.getElementById("filterProject").value = "";
+    document.getElementById("filterPFN").value = "";
+    document.getElementById("filterStatus").value = "All";
+    renderTable();
+    updateDashboard();
+  }
+
+  function statusBadgeHtml(s){
+    if(s === STATUS.PMDP_TBD){
+      return `<span class="status-badge status-open">${STATUS.PMDP_TBD}</span>`;
+    }
+    if(s === STATUS.LINX_TBD){
+      return `<span class="status-badge status-done">${STATUS.LINX_TBD}</span>`;
+    }
+    if(s === STATUS.PMDP_DELAY){
+      return `<span class="status-badge status-delay">${STATUS.PMDP_DELAY}</span>`;
+    }
+    return `<span class="status-badge status-cancel">${STATUS.LINX_DELAY}</span>`;
+  }
+  function dotClassFor(s){
+    if(s === STATUS.PMDP_TBD) return "dot-open";
+    if(s === STATUS.LINX_TBD) return "dot-done";
+    if(s === STATUS.PMDP_DELAY) return "dot-delay";
+    return "dot-cancel";
+  }
+  function updateDeliveryStatusVisual(status){
+    const el = document.getElementById("deliveryStatus");
+    if(!el) return;
+    el.classList.remove("ds-open","ds-done","ds-delay","ds-cancel");
+    if(status === STATUS.PMDP_TBD) el.classList.add("ds-open");
+    else if(status === STATUS.LINX_TBD) el.classList.add("ds-done");
+    else if(status === STATUS.PMDP_DELAY) el.classList.add("ds-delay");
+    else if(status === STATUS.LINX_DELAY) el.classList.add("ds-cancel");
+  }
+
+  function truncate(str, n=60){
+    const s = String(str || "");
+    return s.length > n ? s.slice(0, n-1) + "…" : s;
+  }
+  function escapeHtml(str){
+    return String(str)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function renderTable(){
+    const wrap = document.getElementById("tableWrap");
+    const filtered = getFilteredRecords();
+    updateFilterCount(filtered.length);
+    if(!records.length){
+      wrap.innerHTML = `<div class="empty">No entries yet. Use <b>Save entry</b> to build your list.</div>`;
+      return;
+    }
+    if(records.length && !filtered.length){
+      wrap.innerHTML = `<div class="empty">No results match your filters.</div>`;
+      return;
+    }
+    const rowsHtml = filtered.map((r) => {
+      const realIndex = records.indexOf(r);
+      return `
+<tr>
+  <td class="col-index">${realIndex + 1}</td>
+  <td>${escapeHtml(r.family || "")}</td>
+  <td>${escapeHtml(r.projectName || "")}</td>
+  <td>${escapeHtml(r.diversity || "")}</td>
+  <td>${escapeHtml(r.pfnName || "")}</td>
+  <td>${escapeHtml(r.gfe || "")}</td>
+  <td>${escapeHtml(r.plantOfProduction || "")}</td>
+  <td>${escapeHtml(r.pmdpPlanning || "")}</td>
+  <td>${escapeHtml(r.pmdpDelivery || "")}</td>
+  <td>${escapeHtml(r.linxPlanning || "")}</td>
+  <td>${escapeHtml(r.linxDelivery || "")}</td>
+  <td title="${escapeHtml(r.milestoneName || "")}">${escapeHtml(truncate(r.milestoneName || "", 30))}</td>
+<td>${escapeHtml(r.mfSharedDate || "")}</td>
+  <td title="${escapeHtml(r.mfFeedback || "")}">${escapeHtml(truncate(r.mfFeedback || "", 48))}</td>
+  <td>${escapeHtml(r.dmuQuality || "")}</td>
+  <td>${escapeHtml(r.linxQuality || "")}</td>
+  <td title="${escapeHtml(r.comment || "")}">${escapeHtml(truncate(r.comment || "", 48))}</td>
+  <td class="sticky-status">${statusBadgeHtml(r.deliveryStatus)}</td>
+  <td class="sticky-actions">
+    <button class="edit-btn" onclick="startEdit(${realIndex})">Edit</button>
+    <button class="delete-btn" onclick="askDelete(${realIndex})">Delete</button>
+  </td>
+</tr>`;
+    }).join("");
+    wrap.innerHTML = `
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Family</th>
+      <th>Project Name</th>
+      <th>Diversity</th>
+      <th>PFN name</th>
+      <th>GFE</th>
+      <th>Plant of production</th>
+      <th>PDMP Planning Date</th>
+      <th>PDMP Delivery Date</th>
+      <th>LinxCAT Planning Date</th>
+      <th>LinxCAT Delivery Date</th>
+      <th>Milestone</th>
+<th>MF shared date</th>
+      <th>MF feedback</th>
+      <th>DMU Quality</th>
+      <th>Linx Quality</th>
+      <th>Comment</th>
+      <th class="sticky-status">Delivery Status</th>
+      <th class="sticky-actions">Actions</th>
+    </tr>
+  </thead>
+  <tbody>${rowsHtml}</tbody>
+</table>`;
+  }
+
+  function renderRibbon(){
+    const ribbon = document.getElementById("projectRibbon");
+    if(!records.length){
+      ribbon.innerHTML = `<div class="empty" style="padding:10px 12px;">No projects yet.</div>`;
+      return;
+    }
+    ribbon.innerHTML = records.map((r, i) => {
+      const dotClass = dotClassFor(r.deliveryStatus);
+      const family = r.family ? `${r.family} · ` : "";
+      const name = r.projectName || `Project ${i+1}`;
+      return `<span class="project-pill" title="${escapeHtml(family + name)}">
+        <span class="pill-dot ${dotClass}"></span>${escapeHtml(family + name)}
+      </span>`;
+    }).join("");
+  }
+
+  function dashboardSourceRecords(){
+    return applyFiltersToDashboard ? getFilteredRecords() : records;
+  }
+
+  function computeStatusCounts(source){
+    const counts = {};
+    for(const s of STATUS_ORDER) counts[s] = 0;
+    for(const r of source){
+      const s = normalizeStatusValue(r.deliveryStatus);
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return counts;
+  }
+
+  function computePFNBreakdown(source){
+    const map = new Map();
+    for(const r of source){
+      const base = r.pfnName || "Unassigned";
+      const { key, label } = normalizedKey(base);
+      if(!map.has(key)){
+        const obj = { _label: label };
+        for(const s of STATUS_ORDER) obj[s] = 0;
+        map.set(key, obj);
+      }
+      const bucket = map.get(key);
+      const status = normalizeStatusValue(r.deliveryStatus);
+      bucket[status] = (bucket[status] || 0) + 1;
+    }
+    return [...map.values()].map(v => {
+      let total = 0;
+      const result = { name: v._label || "Unassigned" };
+      for(const s of STATUS_ORDER){
+        result[s] = v[s] || 0;
+        total += v[s] || 0;
+      }
+      result.total = total;
+      return result;
+    }).sort((a,b) => b.total - a.total);
+  }
+
+
+  // --- Smart overview (keeps indicators readable even with hundreds of projects/PFNs) ---
+  // We aggregate long tails into a single "Others (N)" bucket while keeping exact totals.
+  const OVERVIEW_LIMITS = {
+    pfnDelivery: 25,        // Delivery status by PFN
+    qualityByPfn: 25,       // DMU/Linx quality by PFN
+    qualityByProject: 30    // Linx quality by project
+  };
+
+  function aggregateStatusItems(items, limit, otherBaseLabel="Others"){
+    if(!Array.isArray(items) || items.length <= limit) return items || [];
+    const top = items.slice(0, limit);
+    const rest = items.slice(limit);
+
+    const other = { name: `${otherBaseLabel} (${rest.length})`, total:0 };
+    for(const s of STATUS_ORDER) other[s] = 0;
+
+    for(const it of rest){
+      for(const s of STATUS_ORDER) other[s] += (it[s] || 0);
+      other.total += (it.total || 0);
+    }
+
+    return other.total ? [...top, other] : top;
+  }
+
+  function aggregateDatasetsTopN(labels, datasets, limit, otherBaseLabel="Others"){
+    if(!Array.isArray(labels) || !Array.isArray(datasets) || labels.length <= limit){
+      return { labels, datasets };
+    }
+
+    const totals = labels.map((_,idx)=>datasets.reduce((s,ds)=>s + (ds.data?.[idx] || 0), 0));
+    const order = totals.map((t,i)=>({t,i})).sort((a,b)=>b.t-a.t);
+
+    const keep = order.slice(0, limit).map(o=>o.i);
+    const rest = order.slice(limit).map(o=>o.i);
+
+    const newLabels = keep.map(i=>labels[i]);
+    const newDatasets = datasets.map(ds => ({ ...ds, data: keep.map(i => ds.data?.[i] || 0) }));
+
+    if(rest.length){
+      newLabels.push(`${otherBaseLabel} (${rest.length})`);
+      newDatasets.forEach((nds, di) => {
+        const src = datasets[di];
+        const sum = rest.reduce((s,i)=>s + (src.data?.[i] || 0), 0);
+        nds.data.push(sum);
+      });
+    }
+
+    return { labels: newLabels, datasets: newDatasets };
+  }
+
+
+    function setCanvasWrapHeight(canvasEl, heightPx){
+    try{
+      const wrap = canvasEl?.closest?.('.chart-canvas-wrap');
+      if(wrap && heightPx) wrap.style.height = heightPx + 'px';
+    }catch(e){}
+  }
+
+function buildCompletionChart(){
+    const ctx = document.getElementById("completionChart");
+    if(!ctx) return;
+    setCanvasWrapHeight(ctx, 255);
+    const source = dashboardSourceRecords();
+    const c = computeStatusCounts(source);
+    const labels = STATUS_ORDER;
+
+    const data = {
+      labels,
+      datasets: [{
+        data: labels.map(l => c[l] || 0),
+        backgroundColor: [
+          "rgba(56,189,248,0.88)",
+          "rgba(34,197,94,0.88)",
+          "rgba(249,115,22,0.88)",
+          "rgba(239,68,68,0.88)"
+        ],
+        borderColor: [
+          "rgba(56,189,248,1)",
+          "rgba(34,197,94,1)",
+          "rgba(249,115,22,1)",
+          "rgba(239,68,68,1)"
+        ],
+        borderWidth:1,
+        hoverOffset:6
+      }]
+    };
+    const options = {
+      responsive:true,
+      maintainAspectRatio:false,
+      devicePixelRatio: Math.min(2, window.devicePixelRatio || 1),
+      plugins:{
+        legend:{ labels:{ color:"rgba(241,245,249,0.95)", font:{ size:12, weight:"600" } } },
+        tooltip:{
+          backgroundColor:"rgba(2,6,23,0.95)",
+          borderColor:"rgba(255,255,255,0.12)",
+          borderWidth:1,
+          titleColor:"#fff",
+          bodyColor:"#fff"
+        },
+        datalabels:{
+          color:"#e5f2ff",
+          font:{ size:11, weight:"700" },
+          formatter:(value,ctx)=>{
+            if(!value) return "";
+            const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
+            const pct = total ? (value/total*100) : 0;
+            return `${value} (${pct.toFixed(0)}%)`;
+          }
+        }
+      },
+      cutout:"60%"
+    };
+
+    if(completionChartInstance){
+      completionChartInstance.data = data;
+      completionChartInstance.options = options;
+      completionChartInstance.update();
+      return;
+    }
+    completionChartInstance = new Chart(ctx, { type:"doughnut", data, options });
+  }
+
+  function setPFNChartDynamicHeight(labelCount){
+    const wrap = document.getElementById("pfnChartWrap");
+    if(!wrap) return;
+    // Bigger + clearer when many PFNs (still compact & readable)
+    const h = Math.max(280, Math.min(520, labelCount * 34 + 90));
+    wrap.style.height = h + "px";
+  }
+
+  function buildPFNChart(){
+    const ctx = document.getElementById("pfnChart");
+    if(!ctx) return;
+    const source = dashboardSourceRecords();
+    let items = computePFNBreakdown(source);
+    items = aggregateStatusItems(items, OVERVIEW_LIMITS.pfnDelivery, "Others");
+    const labels = items.map(i => i.name);
+    setPFNChartDynamicHeight(labels.length);
+    setChartInnerWidth('pfnInner', 1, 720, 0);
+
+    const maxTotal = items.reduce((m,it)=>{
+      const sum = (it[STATUS.PMDP_TBD]||0)+(it[STATUS.LINX_TBD]||0)+(it[STATUS.PMDP_DELAY]||0)+(it[STATUS.LINX_DELAY]||0);
+      return Math.max(m, sum);
+    }, 0);
+
+
+    const data = {
+      labels,
+      datasets:[
+        { label: STATUS.PMDP_TBD, data: items.map(i => i[STATUS.PMDP_TBD] || 0), backgroundColor:"rgba(56,189,248,0.80)", borderColor:"rgba(56,189,248,1)", borderWidth:1 },
+        { label: STATUS.LINX_TBD, data: items.map(i => i[STATUS.LINX_TBD] || 0), backgroundColor:"rgba(34,197,94,0.80)", borderColor:"rgba(34,197,94,1)", borderWidth:1 },
+        { label: STATUS.PMDP_DELAY, data: items.map(i => i[STATUS.PMDP_DELAY] || 0), backgroundColor:"rgba(249,115,22,0.80)", borderColor:"rgba(249,115,22,1)", borderWidth:1 },
+        { label: STATUS.LINX_DELAY, data: items.map(i => i[STATUS.LINX_DELAY] || 0), backgroundColor:"rgba(239,68,68,0.80)", borderColor:"rgba(239,68,68,1)", borderWidth:1 }
+      ]
+    };
+
+    const options = {
+      responsive:true,
+      maintainAspectRatio:false,
+      datasets:{
+        bar:{
+          barThickness: (labels.length > 18 ? 9 : 11),
+          maxBarThickness: (labels.length > 18 ? 12 : 16),
+          categoryPercentage: 0.55,
+          barPercentage: 0.75
+        }
+      },
+      indexAxis:"y",
+      plugins:{
+        legend:{ labels:{ color:"rgba(241,245,249,0.95)", font:{ size:12, weight:"600" } } },
+        tooltip:{
+          backgroundColor:"rgba(2,6,23,0.95)",
+          borderColor:"rgba(255,255,255,0.12)",
+          borderWidth:1,
+          titleColor:"#fff",
+          bodyColor:"#fff"
+        },
+        datalabels:{
+          anchor:"end",
+          align:"end",
+          color:"#e5f2ff",
+          font:{ size:10, weight:"700" },
+          formatter:value => value || ""
+        }
+      },
+      scales:{
+        x:{ stacked:true, beginAtZero:true, suggestedMax: Math.max(10, Math.ceil((maxTotal || 0) * 2.0)), ticks:{ color:"rgba(226,232,240,0.9)", precision:0, stepSize:1, font:{ size:12, weight:"600" } }, grid:{ color:"rgba(255,255,255,0.06)" } },
+        y:{ stacked:true, ticks:{ color:"rgba(226,232,240,0.9)", font:{ size:11 } }, grid:{ color:"rgba(255,255,255,0.04)" } }
+      }
+    };
+
+    if(pfnChartInstance){
+      pfnChartInstance.data = data;
+      pfnChartInstance.options = options;
+      pfnChartInstance.update();
+      return;
+    }
+    pfnChartInstance = new Chart(ctx, { type:"bar", data, options });
+  }
+
+  function parseDateYmd(str){
+    if(!str) return null;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str.trim());
+    if(!m) return null;
+    const d = new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function diffInDays(fromStr, toStr){
+    const d1 = parseDateYmd(fromStr);
+    const d2 = parseDateYmd(toStr);
+    if(!d1 || !d2) return null;
+
+    // Business-day difference (Mon–Fri). Saturdays and Sundays are NOT counted.
+    // Keeps the same sign/behavior as a normal day diff: Tue - Mon = 1, Mon - Tue = -1.
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    if(d1.getTime() === d2.getTime()) return 0;
+
+    let count = 0;
+    if(d2 > d1){
+      let cur = new Date(d1.getTime());
+      while(cur < d2){
+        cur = new Date(cur.getTime() + oneDay);
+        const dow = cur.getUTCDay(); // 0=Sun ... 6=Sat
+        if(dow !== 0 && dow !== 6) count++;
+      }
+      return count;
+    }else{
+      let cur = new Date(d1.getTime());
+      while(cur > d2){
+        cur = new Date(cur.getTime() - oneDay);
+        const dow = cur.getUTCDay();
+        if(dow !== 0 && dow !== 6) count--;
+      }
+      return count;
+    }
+  }
+
+  
+  function buildTimelineChart(){
+    const canvas = document.getElementById("timelineChart");
+    if(!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const source = dashboardSourceRecords().map(normalizeRecord);
+
+    const items = [];
+    source.forEach((r, idx) => {
+      const m1 = diffInDays(r.pmdpDelivery, r.linxDelivery);
+      if(m1 === null) return;
+
+      const proj = (r.projectName || r.family || `Project ${idx+1}`).trim();
+      const gfe = (r.gfe || "").trim();
+      const baseLabel = gfe ? `${proj} | ${gfe}` : proj;
+      const ms = (r.milestoneName || "").trim();
+
+      items.push({ baseLabel, days: m1, milestone: ms });
+    });
+
+    const values = items.map(i => i.days);
+    const avg = values.length ? values.reduce((a,b)=>a+b,0) / values.length : 0;
+
+    // Show milestone directly on the X label only when the list is short (keeps big lists clean)
+    const labels = items.map(i => {
+      if(i.milestone && items.length <= 25){
+        return [i.baseLabel, "• " + i.milestone];
+      }
+      return i.baseLabel;
+    });
+
+    // Average pill (cleaner than an extra line dataset)
+    const avgPill = document.getElementById("timelineAvgPill");
+    if(avgPill){
+      avgPill.textContent = values.length ? `Avg: ${avg.toFixed(1)} d` : "Avg: —";
+      avgPill.title = values.length ? `Average Linx M1 across ${values.length} project(s)` : "Average (no data)";
+    }
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "rgba(56,189,248,0.95)");
+    gradient.addColorStop(1, "rgba(30,64,175,0.40)");
+
+    const perLabel = (labels.length > 140 ? 46 : (labels.length > 80 ? 60 : (labels.length > 40 ? 75 : 95)));
+    setChartInnerWidth('timelineInner', labels.length, 640, perLabel);
+
+    // Always start the horizontal scroller at the beginning (left)
+    const tlWrap = canvas.closest('.chart-canvas-wrap.scroll-x');
+    if(tlWrap){ tlWrap.scrollLeft = 0; setCanvasWrapHeight(canvas, (labels.length > 70 ? 340 : (labels.length > 35 ? 310 : 285))); }
+
+    const maxDays = items.reduce((m,it)=>Math.max(m,it.days||0), 0);
+    const suggestedYMax = (()=>{ const s = Math.max(10, Math.ceil((maxDays || 0) * 1.35)); return (s % 2 === 0) ? s : (s + 1); })();
+
+    const data = {
+      labels,
+      datasets:[
+        {
+          type: "bar",
+          label: "Linx M1 (days)",
+          data: values,
+          backgroundColor: gradient,
+          borderColor: "rgba(56,189,248,1)",
+          borderWidth: 1,
+          borderRadius: 8,
+          borderSkipped: false
+        }
+      ]
+    };
+
+    const options = {
+      responsive:true,
+      maintainAspectRatio:false,
+      datasets:{
+        bar:{
+          barThickness: (labels.length > 60 ? 10 : 13),
+          maxBarThickness: (labels.length > 60 ? 14 : 18),
+          categoryPercentage: 0.45,
+          barPercentage: 0.65
+        }
+      },
+      plugins:{
+        legend:{ labels:{ color:"rgba(241,245,249,0.95)", font:{ size:12, weight:"600" } } },
+        tooltip:{
+          backgroundColor:"rgba(2,6,23,0.96)",
+          borderColor:"rgba(148,163,184,0.7)",
+          borderWidth:1,
+          titleColor:"#e5f2ff",
+          bodyColor:"#f9fafb",
+          callbacks:{
+            title:(itemsT)=>{
+              if(!itemsT || !itemsT.length) return "";
+              const i = itemsT[0].dataIndex;
+              const b = items[i]?.baseLabel || "";
+              return b;
+            },
+            label:(t)=> `Linx M1: ${t.parsed.y} days`,
+            afterLabel:(t)=>{
+              const ms = items[t.dataIndex]?.milestone;
+              return ms ? `Milestone: ${ms}` : "";
+            },
+            footer:()=> values.length ? `Average: ${avg.toFixed(1)} days` : ""
+          }
+        },
+        datalabels:{
+          anchor:"end",
+          align:"end",
+          color:"#e5f2ff",
+          font:{ size:10, weight:"700" },
+          formatter:(value,ctx)=> {
+            if(ctx.datasetIndex !== 0) return "";
+            if(labels.length > 35) return "";
+            return (value !== null ? value : "");
+          }
+        }
+      },
+      scales:{
+        x:{ ticks:{ color:"rgba(226,232,240,0.9)", autoSkip:(labels.length>18), maxTicksLimit:18, maxRotation:60, minRotation:25, font:{ size:11 } }, grid:{ color:"rgba(31,41,55,0.55)" } },
+        y:{
+          min:0,
+          beginAtZero:true,
+          suggestedMax: suggestedYMax,
+          ticks:{ color:"rgba(226,232,240,0.9)", precision:0, stepSize:2, font:{ size:11 } },
+          grid:{ color:"rgba(31,41,55,0.65)" },
+          title:{ display:true, text:"Linx M1 (days)", color:"rgba(226,232,240,0.9)", font:{ size:11 } }
+        }
+      }
+    };
+
+    if(timelineChartInstance){
+      timelineChartInstance.data = data;
+      timelineChartInstance.options = options;
+      timelineChartInstance.update();
+      return;
+    }
+    timelineChartInstance = new Chart(canvas, { type:"bar", data, options });
+  }
+
+
+  function qualityPalette(){
+    return [
+      "rgba(34,197,94,0.80)",
+      "rgba(56,189,248,0.80)",
+      "rgba(251,191,36,0.85)",
+      "rgba(249,115,22,0.80)",
+      "rgba(239,68,68,0.80)",
+      "rgba(192,38,211,0.80)"
+    ];
+  }
+
+  function buildQualityGlobalChart(){
+    const ctx = document.getElementById("qualityGlobalChart");
+    if(!ctx) return;
+    setCanvasWrapHeight(ctx, 225);
+    const source = dashboardSourceRecords();
+    const counts = {};
+    const labelMap = {};
+
+    for(const r of source){
+      for(const fld of ["dmuQuality","linxQuality"]){
+        const qi = normalizedQuality(r[fld]);
+        if(!qi) continue;
+        counts[qi.key] = (counts[qi.key] || 0) + 1;
+        if(!labelMap[qi.key]) labelMap[qi.key] = qi.label;
+      }
+    }
+
+    const keys = Object.keys(counts);
+    const labels = keys.map(k => labelMap[k]);
+    const values = keys.map(k => counts[k]);
+    const palette = qualityPalette();
+    const bg = keys.map((_,i) => palette[i % palette.length]);
+
+    const data = { labels, datasets:[{ data: values, backgroundColor: bg, borderWidth:0 }] };
+    const options = {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ labels:{ color:"rgba(241,245,249,0.95)", font:{ size:12, weight:"600" } } },
+        tooltip:{
+          backgroundColor:"rgba(2,6,23,0.95)",
+          borderColor:"rgba(255,255,255,0.12)",
+          borderWidth:1,
+          titleColor:"#fff",
+          bodyColor:"#fff"
+        },
+        datalabels:{
+          color:"#e5f2ff",
+          font:{ size:10, weight:"700" },
+          formatter:(value,ctx)=>{
+            if(!value) return "";
+            const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
+            const pct = total ? (value/total*100) : 0;
+            return `${value} (${pct.toFixed(0)}%)`;
+          }
+        }
+      },
+      cutout:"55%"
+    };
+
+    if(qualityGlobalChartInstance){
+      qualityGlobalChartInstance.data = data;
+      qualityGlobalChartInstance.options = options;
+      qualityGlobalChartInstance.update();
+      return;
+    }
+    qualityGlobalChartInstance = new Chart(ctx, { type:"doughnut", data, options });
+  }
+
+  function computeQualityByDimension(source, qualityField, labelField){
+    const qualityLabelMap = {};
+    const buckets = new Map();
+
+    for(const r of source){
+      const qInfo = normalizedQuality(r[qualityField]);
+      if(!qInfo) continue;
+
+      const baseLabel = r[labelField] || "Unassigned";
+      const lblInfo = normalizedKey(baseLabel);
+
+      if(!buckets.has(lblInfo.key)){
+        buckets.set(lblInfo.key, { label: lblInfo.label || "Unassigned", counts:{} });
+      }
+      const bucket = buckets.get(lblInfo.key);
+      bucket.counts[qInfo.key] = (bucket.counts[qInfo.key] || 0) + 1;
+
+      if(!qualityLabelMap[qInfo.key]) qualityLabelMap[qInfo.key] = qInfo.label;
+    }
+
+    const labels = [];
+    const rows = [];
+    buckets.forEach((bucket) => { labels.push(bucket.label || "Unassigned"); rows.push(bucket.counts); });
+
+    const qualityKeys = Object.keys(qualityLabelMap);
+    const categories = qualityKeys.map(k => ({ key:k, label:qualityLabelMap[k] }));
+
+    const datasets = categories.map(cat => ({
+      label: cat.label,
+      data: rows.map(row => row[cat.key] || 0)
+    }));
+
+    return { labels, datasets };
+  }
+
+  function buildQualityPfnChart(){
+    const ctx = document.getElementById("qualityPfnChart");
+    if(!ctx) return;
+    const source = dashboardSourceRecords();
+    let { labels, datasets } = computeQualityByDimension(source, "dmuQuality", "pfnName");
+    ({ labels, datasets } = aggregateDatasetsTopN(labels, datasets, OVERVIEW_LIMITS.qualityByPfn, "Others"));
+    const palette = qualityPalette();
+
+    datasets.forEach((ds, i) => {
+      const c = palette[i % palette.length];
+      ds.backgroundColor = c;
+      ds.borderColor = c.replace("0.80","1").replace("0.85","1");
+      ds.borderWidth = 1;
+    });
+
+    setChartInnerWidth('qualityPfnInner', labels.length, 560, 80);
+    setCanvasWrapHeight(ctx, (labels.length > 22 ? 255 : 225));
+
+    const totals = labels.map((_,idx)=>datasets.reduce((s,ds)=>s + (ds.data?.[idx] || 0), 0));
+    const maxTotal = totals.reduce((m,v)=>Math.max(m,v||0), 0);
+
+    const data = { labels, datasets };
+    const options = {
+      responsive:true,
+      maintainAspectRatio:false,
+      datasets:{
+        bar:{
+          barThickness: (labels.length > 60 ? 10 : 13),
+          maxBarThickness: (labels.length > 60 ? 14 : 18),
+          categoryPercentage: 0.45,
+          barPercentage: 0.65
+        }
+      },
+      
+      plugins:{
+        legend:{ labels:{ color:"rgba(241,245,249,0.95)", boxWidth:12, font:{ size:12, weight:"600" } } },
+        tooltip:{
+          backgroundColor:"rgba(2,6,23,0.95)",
+          borderColor:"rgba(255,255,255,0.12)",
+          borderWidth:1,
+          titleColor:"#fff",
+          bodyColor:"#fff"
+        },
+        datalabels:{
+          anchor:"end", align:"end",
+          color:"#e5f2ff",
+          font:{ size:9, weight:"600" },
+          formatter:value => (labels.length > 40 ? "" : (value || ""))
+        }
+      },
+      scales:{
+        x:{ stacked:true, ticks:{ color:"rgba(226,232,240,0.9)", maxRotation:60, minRotation:25, autoSkip:(labels.length>18), maxTicksLimit:18, font:{ size:11 } }, grid:{ color:"rgba(255,255,255,0.06)" } },
+        y:{ stacked:true, beginAtZero:true, suggestedMax: Math.max(5, Math.ceil((maxTotal || 0) * 1.6)), ticks:{ color:"rgba(226,232,240,0.9)", precision:0, font:{ size:11 } }, grid:{ color:"rgba(255,255,255,0.06)" } }
+      }
+    };
+
+    if(qualityPfnChartInstance){
+      qualityPfnChartInstance.data = data;
+      qualityPfnChartInstance.options = options;
+      qualityPfnChartInstance.update();
+      return;
+    }
+    qualityPfnChartInstance = new Chart(ctx, { type:"bar", data, options });
+  }
+
+  function buildQualityProjectChart(){
+    const ctx = document.getElementById("qualityProjectChart");
+    if(!ctx) return;
+    const source = dashboardSourceRecords();
+    let { labels, datasets } = computeQualityByDimension(source, "linxQuality", "projectName");
+    ({ labels, datasets } = aggregateDatasetsTopN(labels, datasets, OVERVIEW_LIMITS.qualityByProject, "Others"));
+    const palette = qualityPalette();
+
+    datasets.forEach((ds, i) => {
+      const c = palette[i % palette.length];
+      ds.backgroundColor = c;
+      ds.borderColor = c.replace("0.80","1").replace("0.85","1");
+      ds.borderWidth = 1;
+    });
+
+    setChartInnerWidth('qualityProjectInner', labels.length, 560, 80);
+    setCanvasWrapHeight(ctx, (labels.length > 22 ? 255 : 225));
+
+    const totals = labels.map((_,idx)=>datasets.reduce((s,ds)=>s + (ds.data?.[idx] || 0), 0));
+    const maxTotal = totals.reduce((m,v)=>Math.max(m,v||0), 0);
+
+    const data = { labels, datasets };
+    const options = {
+      responsive:true,
+      maintainAspectRatio:false,
+      datasets:{
+        bar:{
+          barThickness: (labels.length > 60 ? 10 : 13),
+          maxBarThickness: (labels.length > 60 ? 14 : 18),
+          categoryPercentage: 0.45,
+          barPercentage: 0.65
+        }
+      },
+      plugins:{
+        legend:{ labels:{ color:"rgba(241,245,249,0.95)", boxWidth:12, font:{ size:12, weight:"600" } } },
+        tooltip:{
+          backgroundColor:"rgba(2,6,23,0.95)",
+          borderColor:"rgba(255,255,255,0.12)",
+          borderWidth:1,
+          titleColor:"#fff",
+          bodyColor:"#fff"
+        },
+        datalabels:{
+          anchor:"end", align:"end",
+          color:"#e5f2ff",
+          font:{ size:9, weight:"600" },
+          formatter:value => (labels.length > 50 ? "" : (value || ""))
+        }
+      },
+      scales:{
+        x:{ stacked:true,
+            ticks:{ color:"rgba(226,232,240,0.9)", maxRotation:60, minRotation:25, autoSkip:(labels.length>18), maxTicksLimit:18, font:{ size:11 } },
+            grid:{ color:"rgba(255,255,255,0.06)" }
+        },
+        y:{ stacked:true, beginAtZero:true, suggestedMax: 10,
+            ticks:{ color:"rgba(226,232,240,0.9)", precision:0, stepSize:1, font:{ size:11 } },
+            grid:{ color:"rgba(255,255,255,0.06)" }
+        }
+      }
+    };
+
+    if(qualityProjectChartInstance){
+      qualityProjectChartInstance.data = data;
+      qualityProjectChartInstance.options = options;
+      qualityProjectChartInstance.update();
+      return;
+    }
+    qualityProjectChartInstance = new Chart(ctx, { type:"bar", data, options });
+  }
+
+  function buildQualityCharts(){
+    buildQualityGlobalChart();
+    buildQualityPfnChart();
+    buildQualityProjectChart();
+  }
+
+  function downloadExcel(){
+    if(!records.length){
+      alert("No saved entries to export yet.");
+      return;
+    }
+    const header = [
+      "Family","Project Name","Diversity","PFN name","GFE","Plant of production",
+      "PDMP Planning Date","PDMP Delivery Date",
+      "LinxCAT Planning Date","LinxCAT Delivery Date",
+      "Milestone",
+      "MF shared date","MF feedback",
+      "DMU Quality","Linx Quality",
+      "Comment","Delivery Status"
+    ];
+    const dataRows = records.map(r => [
+      r.family, r.projectName, r.diversity, r.pfnName, r.gfe, r.plantOfProduction,
+      r.pmdpPlanning, r.pmdpDelivery, r.linxPlanning, r.linxDelivery,
+      r.milestoneName,
+      r.mfSharedDate, r.mfFeedback, r.dmuQuality, r.linxQuality,
+      r.comment, r.deliveryStatus
+    ]);
+    const wsData = [header, ...dataRows];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!autofilter"] = { ref: "A1:Q" + wsData.length };
+    ws["!cols"] = [
+      { wch: 16 }, { wch: 34 }, { wch: 14 }, { wch: 20 }, { wch: 10 },
+      { wch: 20 }, { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 18 },
+      { wch: 22 }, { wch: 18 }, { wch: 36 }, { wch: 14 }, { wch: 14 }, { wch: 48 }, { wch: 20 }
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, "PDMP_LinxCAT");
+    const wbout = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+    const blob = new Blob([wbout], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "PDMP_LinxCAT_Projects.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function autoUpdateStatusFromDates(){
+    const elStatus = document.getElementById("deliveryStatus");
+    if(!elStatus) return;
+
+    const pPlan = document.getElementById("pmdpPlanning").value.trim();
+    const pDel  = document.getElementById("pmdpDelivery").value.trim();
+    const lPlan = document.getElementById("linxPlanning").value.trim();
+    const lDel  = document.getElementById("linxDelivery").value.trim();
+
+    let status = STATUS.PMDP_TBD;
+
+    // If PDMP not delivered yet -> PDMP to be diffused (default)
+    if(!pDel){
+      status = STATUS.PMDP_TBD;
+    }
+    // PDMP delivered, Linx not delivered yet
+    else if(pDel && !lDel){
+      const dpPlan = parseDateYmd(pPlan);
+      const dpDel  = parseDateYmd(pDel);
+      status = (dpPlan && dpDel && dpDel > dpPlan) ? STATUS.PMDP_DELAY : STATUS.PMDP_TBD;
+    }
+    // Both delivered
+    else if(pDel && lDel){
+      const dpPlan = parseDateYmd(pPlan);
+      const dpDel  = parseDateYmd(pDel);
+      const dlPlan = parseDateYmd(lPlan);
+      const dlDel  = parseDateYmd(lDel);
+
+      const pDelay = (dpPlan && dpDel && dpDel > dpPlan);
+      const lDelay = (dlPlan && dlDel && dlDel > dlPlan);
+
+      status = (pDelay || lDelay) ? STATUS.LINX_DELAY : STATUS.LINX_TBD;
+    }
+
+    elStatus.value = status;
+    updateDeliveryStatusVisual(status);
+  }
+
+  function refreshAll(){
+    refreshCounters();
+    renderRibbon();
+    renderTable();
+    updateDashboard();
+  }
+
+  function updateDashboard(){
+    buildCompletionChart();
+    buildPFNChart();
+    buildTimelineChart();
+    buildQualityCharts();
+    applyAutoCompact();
+  }
+
+  
+  function applyDensityMode(mode){
+    const m = (mode || "auto").toLowerCase();
+
+    if(m === "compact"){
+      document.body.classList.add("compact");
+      return;
+    }
+    if(m === "normal"){
+      document.body.classList.remove("compact");
+      return;
+    }
+    // auto
+    applyAutoCompact();
+  }
+
+function applyAutoCompact(){
+    // Respect user preference if set
+    try{
+      const pref = (localStorage.getItem(VIEW_DENSITY_KEY) || "auto").toLowerCase();
+      if(pref === "compact"){ document.body.classList.add("compact"); return; }
+      if(pref === "normal"){ document.body.classList.remove("compact"); return; }
+    }catch(e){}
+
+    try{
+      const uniqPFN = new Set(records.map(r => String(r?.pfnName||"").trim()).filter(Boolean)).size;
+      // Compact automatically when content grows
+      const shortViewport = window.innerHeight < 860;
+      const should = shortViewport || (records.length >= 10) || (uniqPFN >= 6);
+      document.body.classList.toggle("compact", should);
+    }catch(e){}
+  }
+
+  function initDatePickers(){
+    // Flatpickr as a true "dropdown" directly under each date field (scales with dashboard zoom)
+    const commonOpts = {
+      dateFormat: "Y-m-d",
+      altInput: true,
+      altFormat: "Y-m-d",
+      allowInput: true,
+      weekNumbers: true,
+      disableMobile: true,
+      static: true, // keeps the calendar fixed under the input like a dropdown
+      locale: { firstDayOfWeek: 1 }
+    };
+
+    ["pmdpPlanning","pmdpDelivery","linxPlanning","linxDelivery"].forEach(id => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      flatpickr(el, Object.assign({}, commonOpts, {
+        onChange: autoUpdateStatusFromDates,
+        onClose: autoUpdateStatusFromDates
+      }));
+    });
+
+    const mf = document.getElementById("mfSharedDate");
+    if(mf) flatpickr(mf, commonOpts);
+  }
+
+
+  
+function initIndicatorsDrawer(){
+  const body = document.body;
+  const btn = document.getElementById('drawerToggleBtn');
+  const handle = document.getElementById('drawerHandleBtn'); // in-drawer close
+  const fab = document.getElementById('drawerFabBtn');       // floating open pill
+  const backdrop = document.getElementById('drawerBackdrop');
+  const viewTools = document.querySelector('.view-tools');
+
+  if(!btn || !handle) return;
+
+  const key = 'pdmp_linx_drawer_collapsed_v2';
+  const stored = localStorage.getItem(key);
+
+  // Default: collapsed (clean full-width dashboard). User preference persists.
+  let collapsed = (stored === null) ? true : (stored === '1');
+
+  function updateDrawerTop(){
+    try{
+      let top = 118;
+      if(viewTools){
+        const r = viewTools.getBoundingClientRect();
+        top = Math.max(96, Math.round(r.bottom + 12));
+      }
+      document.documentElement.style.setProperty('--drawer-top', top + 'px');
+    }catch(e){}
+  }
+
+  function reflowCharts(){
+    // Force charts to reflow after drawer animation and/or resize
+    setTimeout(() => {
+      try{ window.dispatchEvent(new Event('resize')); }catch(e){}
+      try{
+        [
+          completionChartInstance,
+          pfnChartInstance,
+          qualityGlobalChartInstance,
+          qualityPfnChartInstance,
+          qualityProjectChartInstance,
+          timelineChartInstance
+        ].forEach(c => { try{ c && c.resize(); }catch(e){} });
+      }catch(e){}
+    }, 280);
+  }
+
+  function apply(){
+    body.classList.toggle('drawer-collapsed', collapsed);
+
+    btn.setAttribute('aria-expanded', (!collapsed).toString());
+    if(backdrop) backdrop.setAttribute('aria-hidden', (collapsed ? 'true' : 'false'));
+
+    // Subtle active state on button
+    btn.classList.toggle('is-active', !collapsed);
+
+    // FAB only when collapsed
+    if(fab){
+      fab.setAttribute('aria-hidden', (!collapsed).toString());
+    }
+
+    updateDrawerTop();
+    reflowCharts();
+  }
+
+  function setCollapsed(v){
+    collapsed = !!v;
+    try{ localStorage.setItem(key, collapsed ? '1' : '0'); }catch(e){}
+    apply();
+  }
+
+  function toggle(){ setCollapsed(!collapsed); }
+
+  // Expose helpers so Edit buttons can open the drawer instantly
+  window.openIndicatorsPanel = () => setCollapsed(false);
+  window.closeIndicatorsPanel = () => setCollapsed(true);
+  window.toggleIndicatorsPanel = () => toggle();
+  window.isIndicatorsPanelOpen = () => !collapsed;
+
+
+  btn.addEventListener('click', toggle);
+  handle.addEventListener('click', () => setCollapsed(true));
+  if(fab) fab.addEventListener('click', () => setCollapsed(false));
+  if(backdrop) backdrop.addEventListener('click', () => setCollapsed(true));
+
+  window.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && !collapsed){ setCollapsed(true); }
+  });
+
+  window.addEventListener('resize', () => {
+    updateDrawerTop();
+  });
+
+  updateDrawerTop();
+  apply();
+}
+
+
+window.addEventListener("load", async () => {
+    enableHorizontalWheelScroll();
+    enablePageScrollUX();
+    initViewTools();
+    initIndicatorsDrawer();
+    const shared = await loadSharedRecords();
+    if(shared.length){
+      records = shared;
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }catch{}
+    } else {
+      const saved = loadRecords();
+      if(saved.length){
+        records = saved;
+      } else {
+        records = records.map(normalizeRecord);
+        persist();
+      }
+    }
+applyAutoCompact();
+    projectNames = loadProjectNames();
+    buildProjectNameSelect("");
+    document.getElementById("projectName").addEventListener("change", handleProjectSelectChange);
+
+    showEditMode(false);
+    wireModal();
+    wireFilters();
+    initDatePickers();
+
+    initManagedCombos();
+
+    // Auto-update delivery state even when typing manually
+    ["pmdpPlanning","pmdpDelivery","linxPlanning","linxDelivery"].forEach(id => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.addEventListener("input", autoUpdateStatusFromDates);
+      el.addEventListener("change", autoUpdateStatusFromDates);
+    });
+
+
+    refreshAll();
+    document.getElementById("deliveryStatus").value = STATUS.PMDP_TBD;
+    updateDeliveryStatusVisual(STATUS.PMDP_TBD);
+  });
+</script>
+</div>
+
+  <!-- Dashboard toast notification -->
+  <div id="dashToast" class="dash-toast success" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-dot" aria-hidden="true"></div>
+    <div class="toast-text">
+      <p class="toast-title" id="dashToastTitle">Saved</p>
+      <p class="toast-msg" id="dashToastMsg">Done.</p>
+    </div>
+    <button class="toast-close" id="dashToastClose" type="button" aria-label="Close">
+      ✕
+    </button>
+  </div>
+
+
+<script>
+  // === Dashboard toast helper (used for create/edit confirmations) ===
+  (function(){
+    const toast = document.getElementById('dashToast');
+    if(!toast) return;
+
+    const titleEl = document.getElementById('dashToastTitle');
+    const msgEl   = document.getElementById('dashToastMsg');
+    const closeBtn= document.getElementById('dashToastClose');
+
+    let hideTimer = null;
+
+    function setType(type){
+      toast.classList.remove('success','warn','error');
+      if(type === 'warn') toast.classList.add('warn');
+      else if(type === 'error') toast.classList.add('error');
+      else toast.classList.add('success');
+    }
+
+    window.showToast = function(message, type){
+      setType(type || 'success');
+      titleEl.textContent = (type === 'error') ? 'Error' : (type === 'warn' ? 'Notice' : 'Saved');
+      msgEl.textContent = message || '';
+
+      // restart animation cleanly
+      toast.classList.remove('hide','show');
+      void toast.offsetWidth; // reflow
+      toast.classList.add('show');
+
+      if(hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+      }, 2400);
+    };
+
+    closeBtn.addEventListener('click', () => {
+      if(hideTimer) clearTimeout(hideTimer);
+      toast.classList.remove('show');
+      toast.classList.add('hide');
+    });
+  })();
+</script>
+
+</body>
+</html>
