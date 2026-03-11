@@ -1720,17 +1720,10 @@ const PFN_NAMES_KEY     = "pfn_names_pmdp_linxcat_v1";
   // --- Cloudflare API sync ---
   const CF_API_BASE = "https://dashboard-db.enis-sahli-extern.workers.dev";
   const CF_ITEMS_URL = `${CF_API_BASE}/api/items`;
+  const CF_LISTS_URL = `${CF_API_BASE}/api/lists`;
   const CF_TOKEN_STORAGE_KEY = "pfn_cf_api_token_v1";
-  const CF_META_FAMILY = "__CF_META__";
-  const CF_META_KEYS = {
-    projectNames: "PROJECT_NAMES",
-    gfeNames: "GFE_NAMES",
-    plantNames: "PLANT_NAMES",
-    pfnNames: "PFN_NAMES",
-    milestoneNames: "MILESTONE_NAMES",
-    qualityNames: "QUALITY_NAMES"
-  };
-  let cfMetaRecordIds = {};
+  let sharedNameLists = null;
+  let sharedListsSyncTimer = null;
 
   function getApiToken(){
     try{ return localStorage.getItem(CF_TOKEN_STORAGE_KEY) || ""; }catch{ return ""; }
@@ -1796,17 +1789,7 @@ const PFN_NAMES_KEY     = "pfn_names_pmdp_linxcat_v1";
     const r = await fetch(CF_ITEMS_URL, { method: "GET", cache: "no-store" });
     const j = await r.json();
     if(!r.ok) throw new Error(j?.error || `GET failed (${r.status})`);
-    const items = Array.isArray(j?.items) ? j.items : [];
-    return items
-      .filter(r => String(r?.family || "") !== CF_META_FAMILY)
-      .map(fromApiRecord);
-  }
-
-  async function apiGetItemsRaw(){
-    const r = await fetch(CF_ITEMS_URL, { method: "GET", cache: "no-store" });
-    const j = await r.json();
-    if(!r.ok) throw new Error(j?.error || `GET failed (${r.status})`);
-    return Array.isArray(j?.items) ? j.items : [];
+    return Array.isArray(j?.items) ? j.items.map(fromApiRecord) : [];
   }
 
   async function apiCreateItem(rec){
@@ -1853,67 +1836,86 @@ const PFN_NAMES_KEY     = "pfn_names_pmdp_linxcat_v1";
     return j;
   }
 
-
-  function getMetaPayloadArray(rawComment){
-    try{
-      const arr = JSON.parse(rawComment || "[]");
-      return Array.isArray(arr) ? arr.map(v => String(v || "").trim()).filter(Boolean) : [];
-    }catch{
-      return [];
-    }
+  function normalizeSharedList(values, defaults = []){
+    const map = new Map();
+    [...(defaults || []), ...(Array.isArray(values) ? values : [])].forEach(v => {
+      const s = String(v || "").trim();
+      if(!s) return;
+      const key = s.toLowerCase();
+      if(!map.has(key)) map.set(key, s);
+    });
+    return [...map.values()];
   }
 
-  async function apiLoadSharedLists(){
-    try{
-      const items = await apiGetItemsRaw();
-      const meta = items.filter(r => String(r?.family || "") === CF_META_FAMILY);
-      cfMetaRecordIds = {};
-      const getList = (key) => {
-        const row = meta.find(r => String(r?.project_name || "") === key);
-        if(row?.id != null) cfMetaRecordIds[key] = row.id;
-        return row ? getMetaPayloadArray(row.comment) : null;
-      };
-      return {
-        projectNames: getList(CF_META_KEYS.projectNames),
-        gfeNames: getList(CF_META_KEYS.gfeNames),
-        plantNames: getList(CF_META_KEYS.plantNames),
-        pfnNames: getList(CF_META_KEYS.pfnNames),
-        milestoneNames: getList(CF_META_KEYS.milestoneNames),
-        qualityNames: getList(CF_META_KEYS.qualityNames)
-      };
-    }catch{
-      return {};
-    }
+  async function apiGetSharedLists(){
+    const r = await fetch(CF_LISTS_URL, { method: "GET", cache: "no-store" });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j?.error || `GET lists failed (${r.status})`);
+    return j?.lists || {};
   }
 
-  async function apiSaveMetaList(metaKey, arr){
+  async function apiPutSharedLists(lists){
     const token = ensureApiToken();
     if(!token) throw new Error("Missing API token.");
-    const payload = {
-      family: CF_META_FAMILY,
-      project_name: metaKey,
-      comment: JSON.stringify((arr || []).map(v => String(v || "").trim()).filter(Boolean))
-    };
-    const existingId = cfMetaRecordIds[metaKey];
-    if(existingId != null && existingId !== ""){
-      const res = await apiUpdateItem(existingId, payload);
-      return res;
-    }
-    const res = await apiCreateItem(payload);
-    if(res && res.id != null) cfMetaRecordIds[metaKey] = res.id;
-    return res;
+    const r = await fetch(CF_LISTS_URL, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Token": token
+      },
+      body: JSON.stringify({ lists })
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j?.error || `PUT lists failed (${r.status})`);
+    return j;
   }
 
-  function storageKeyToMetaKey(storageKey){
-    switch(storageKey){
-      case PROJECT_NAMES_KEY: return CF_META_KEYS.projectNames;
-      case GFE_NAMES_KEY: return CF_META_KEYS.gfeNames;
-      case PLANT_NAMES_KEY: return CF_META_KEYS.plantNames;
-      case PFN_NAMES_KEY: return CF_META_KEYS.pfnNames;
-      case MILESTONE_NAMES_KEY: return CF_META_KEYS.milestoneNames;
-      case QUALITY_NAMES_KEY: return CF_META_KEYS.qualityNames;
-      default: return null;
-    }
+  function getCurrentSharedListsPayload(){
+    return {
+      projectNames: Array.isArray(projectNames) ? projectNames : [],
+      plantNames: Array.isArray(plantNames) ? plantNames : [],
+      gfeNames: Array.isArray(gfeNames) ? gfeNames : [],
+      pfnNames: Array.isArray(pfnNames) ? pfnNames : [],
+      milestoneNames: Array.isArray(milestoneNames) ? milestoneNames : []
+    };
+  }
+
+  function scheduleSharedListsSync(){
+    try{
+      clearTimeout(sharedListsSyncTimer);
+      sharedListsSyncTimer = setTimeout(async () => {
+        try{
+          await apiPutSharedLists(getCurrentSharedListsPayload());
+          sharedNameLists = getCurrentSharedListsPayload();
+        }catch(err){
+          console.warn("Shared list sync failed:", err);
+        }
+      }, 150);
+    }catch{}
+  }
+
+  function ensureValueInArray(arr, value){
+    const s = String(value || "").trim();
+    if(!s) return arr;
+    const key = s.toLowerCase();
+    if((arr || []).some(v => String(v || "").trim().toLowerCase() === key)) return arr;
+    return [...(arr || []), s];
+  }
+
+  function syncListsFromRecord(rec){
+    if(!rec) return;
+    projectNames = ensureValueInArray(projectNames, rec.projectName);
+    gfeNames = ensureValueInArray(gfeNames, rec.gfe);
+    plantNames = ensureValueInArray(plantNames, rec.plantOfProduction);
+    pfnNames = ensureValueInArray(pfnNames, rec.pfnName);
+    milestoneNames = ensureValueInArray(milestoneNames, rec.milestoneName);
+
+    try{ localStorage.setItem(PROJECT_NAMES_KEY, JSON.stringify(projectNames)); }catch{}
+    try{ localStorage.setItem(GFE_NAMES_KEY, JSON.stringify(gfeNames)); }catch{}
+    try{ localStorage.setItem(PLANT_NAMES_KEY, JSON.stringify(plantNames)); }catch{}
+    try{ localStorage.setItem(PFN_NAMES_KEY, JSON.stringify(pfnNames)); }catch{}
+    try{ localStorage.setItem(MILESTONE_NAMES_KEY, JSON.stringify(milestoneNames)); }catch{}
+    scheduleSharedListsSync();
   }
   const DEFAULT_QUALITIES = ["OK","KO","Open"];
   const DEFAULT_PROJECTS = [
@@ -2227,41 +2229,36 @@ mfSharedDate: r?.mfSharedDate ?? "",
   }
 
   function loadProjectNames(){
+    const remote = Array.isArray(sharedNameLists?.projectNames) ? sharedNameLists.projectNames : null;
     let stored = [];
     try{
       const raw = localStorage.getItem(PROJECT_NAMES_KEY);
       if(raw) stored = JSON.parse(raw);
     }catch{}
-    const map = new Map();
-    [...DEFAULT_PROJECTS, ...stored].forEach(name => {
-      if(!name) return;
-      const key = String(name).trim().toLowerCase();
-      if(!key) return;
-      if(!map.has(key)) map.set(key, String(name).trim());
-    });
-    return [...map.values()];
+    return normalizeSharedList(remote ?? stored, DEFAULT_PROJECTS);
   }
   function persistProjectNames(){
-    try{ localStorage.setItem(PROJECT_NAMES_KEY, JSON.stringify(projectNames)); }catch{}
-    const metaKey = storageKeyToMetaKey(PROJECT_NAMES_KEY);
-    if(metaKey) apiSaveMetaList(metaKey, projectNames).catch(()=>{});
+    localStorage.setItem(PROJECT_NAMES_KEY, JSON.stringify(projectNames));
+    scheduleSharedListsSync();
   }
 
 
   function loadNameList(storageKey, defaults){
+    const remoteKeyMap = {
+      [PLANT_NAMES_KEY]: "plantNames",
+      [GFE_NAMES_KEY]: "gfeNames",
+      [PFN_NAMES_KEY]: "pfnNames",
+      [MILESTONE_NAMES_KEY]: "milestoneNames",
+      [QUALITY_NAMES_KEY]: "qualityNames"
+    };
+    const remoteKey = remoteKeyMap[storageKey];
+    const remote = remoteKey && Array.isArray(sharedNameLists?.[remoteKey]) ? sharedNameLists[remoteKey] : null;
     let stored = [];
     try{
       const raw = localStorage.getItem(storageKey);
       if(raw) stored = JSON.parse(raw);
     }catch{}
-    const map = new Map();
-    [...(defaults || []), ...(stored || [])].forEach(v => {
-      if(!v) return;
-      const key = String(v).trim().toLowerCase();
-      if(!key) return;
-      if(!map.has(key)) map.set(key, String(v).trim());
-    });
-    return [...map.values()];
+    return normalizeSharedList(remote ?? stored, defaults || []);
   }
 
   
@@ -2285,9 +2282,8 @@ mfSharedDate: r?.mfSharedDate ?? "",
   }
 
 function persistNameList(storageKey, arr){
-    try{ localStorage.setItem(storageKey, JSON.stringify(arr || [])); }catch{}
-    const metaKey = storageKeyToMetaKey(storageKey);
-    if(metaKey) apiSaveMetaList(metaKey, arr || []).catch(()=>{});
+    localStorage.setItem(storageKey, JSON.stringify(arr || []));
+    scheduleSharedListsSync();
   }
 
   function addValueToList(storageKey, currentList, value){
@@ -2442,27 +2438,13 @@ function persistNameList(storageKey, arr){
     });
   }
 
-async function initManagedCombos(){
-    // Load lists from Cloudflare first, fallback to local/defaults
-    const remoteLists = await apiLoadSharedLists();
-    projectNames = Array.isArray(remoteLists.projectNames) && remoteLists.projectNames.length
-      ? remoteLists.projectNames : loadProjectNames();
-    try{ localStorage.setItem(PROJECT_NAMES_KEY, JSON.stringify(projectNames)); }catch{}
-    buildProjectNameSelect(document.getElementById("projectName")?.value || "");
-
-    plantNames = Array.isArray(remoteLists.plantNames) ? remoteLists.plantNames : loadNameList(PLANT_NAMES_KEY, DEFAULT_PLANTS);
-    gfeNames   = Array.isArray(remoteLists.gfeNames) ? remoteLists.gfeNames : loadNameList(GFE_NAMES_KEY, DEFAULT_GFES);
-    pfnNames   = Array.isArray(remoteLists.pfnNames) ? remoteLists.pfnNames : loadNameList(PFN_NAMES_KEY, DEFAULT_PFNS);
-    milestoneNames = Array.isArray(remoteLists.milestoneNames) ? remoteLists.milestoneNames : loadNameList(MILESTONE_NAMES_KEY, DEFAULT_MILESTONES);
-    qualityNames = Array.isArray(remoteLists.qualityNames) ? remoteLists.qualityNames : loadNameListStrict(QUALITY_NAMES_KEY, DEFAULT_QUALITIES);
-
-    try{
-      localStorage.setItem(PLANT_NAMES_KEY, JSON.stringify(plantNames));
-      localStorage.setItem(GFE_NAMES_KEY, JSON.stringify(gfeNames));
-      localStorage.setItem(PFN_NAMES_KEY, JSON.stringify(pfnNames));
-      localStorage.setItem(MILESTONE_NAMES_KEY, JSON.stringify(milestoneNames));
-      localStorage.setItem(QUALITY_NAMES_KEY, JSON.stringify(qualityNames));
-    }catch{}
+function initManagedCombos(){
+    // Load lists from storage
+    plantNames = loadNameList(PLANT_NAMES_KEY, DEFAULT_PLANTS);
+    gfeNames   = loadNameList(GFE_NAMES_KEY, DEFAULT_GFES);
+    pfnNames   = loadNameList(PFN_NAMES_KEY, DEFAULT_PFNS);
+    milestoneNames = loadNameList(MILESTONE_NAMES_KEY, DEFAULT_MILESTONES);
+    qualityNames = loadNameListStrict(QUALITY_NAMES_KEY, DEFAULT_QUALITIES);
 
     // Small setters with attached storageKey
     const setPlants = (v) => { plantNames = v; };
@@ -2563,7 +2545,7 @@ async function initManagedCombos(){
     const total = records.length;
     document.getElementById("totalCount").textContent = String(total);
     document.getElementById("loadStatus").textContent =
-      total ? "Saved data loaded from shared dashboard." : "No saved data yet.";
+      total ? "Saved data loaded from this browser." : "No saved data yet.";
   }
 
   function normalizedKey(value){
@@ -2676,6 +2658,7 @@ mfSharedDate:"",
       return;
     }
     ensureProjectNameInList(entry.projectName);
+    syncListsFromRecord(entry);
     try{
       const res = await apiCreateItem(entry);
       records.unshift(normalizeRecord({ ...entry, id: res?.id ?? null }));
@@ -2723,6 +2706,7 @@ mfSharedDate:"",
       return;
     }
     ensureProjectNameInList(updated.projectName);
+    syncListsFromRecord(updated);
     try{
       await apiUpdateItem(current.id, updated);
       records[editingIndex] = normalizeRecord({ ...updated, id: current.id });
@@ -3929,6 +3913,13 @@ window.addEventListener("load", async () => {
     enablePageScrollUX();
     initViewTools();
     initIndicatorsDrawer();
+
+    try{
+      sharedNameLists = await apiGetSharedLists();
+    }catch(e){
+      sharedNameLists = null;
+    }
+
     const shared = await loadSharedRecords();
     if(shared.length){
       records = shared;
@@ -3952,7 +3943,7 @@ applyAutoCompact();
     wireFilters();
     initDatePickers();
 
-    await initManagedCombos();
+    initManagedCombos();
 
     // Auto-update delivery state even when typing manually
     ["pmdpPlanning","pmdpDelivery","linxPlanning","linxDelivery"].forEach(id => {
